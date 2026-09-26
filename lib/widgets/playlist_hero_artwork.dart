@@ -20,6 +20,7 @@ import 'dart:math';
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:musify/constants/app_constants.dart';
+import 'package:musify/theme/app_themes.dart';
 import 'package:musify/widgets/playlist_cube.dart';
 
 class PlaylistHeroArtwork extends StatelessWidget {
@@ -27,10 +28,15 @@ class PlaylistHeroArtwork extends StatelessWidget {
     this.playlist, {
     super.key,
     this.cubeIcon = FluentIcons.text_bullet_list_24_filled,
+    this.styled = false,
   });
 
   final Map playlist;
   final IconData cubeIcon;
+
+  /// Renders as a square 18px-rounded card with the green edge and glow
+  /// instead of the multi-point star clip.
+  final bool styled;
 
   @override
   Widget build(BuildContext context) {
@@ -47,8 +53,23 @@ class PlaylistHeroArtwork extends StatelessWidget {
           playlist,
           size: size,
           cubeIcon: cubeIcon,
+          borderRadius: styled ? 18 : 16,
           showTypeLabel: false,
         );
+
+        if (styled) {
+          final colorScheme = Theme.of(context).colorScheme;
+          final radius = BorderRadius.circular(18);
+          return Container(
+            decoration: BoxDecoration(
+              color: getHarmonyCardColor(colorScheme),
+              borderRadius: radius,
+              border: getHarmonyCardBorder(colorScheme),
+              boxShadow: getHarmonyCardShadow(colorScheme),
+            ),
+            child: ClipRRect(borderRadius: radius, child: artwork),
+          );
+        }
 
         return ClipPath(
           clipper: const ShapeBorderClipper(

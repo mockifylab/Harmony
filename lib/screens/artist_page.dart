@@ -32,10 +32,12 @@ import 'package:musify/services/artist_service.dart';
 import 'package:musify/services/playlists_manager.dart';
 import 'package:musify/services/router_service.dart';
 import 'package:musify/services/settings_manager.dart';
+import 'package:musify/theme/app_themes.dart';
 import 'package:musify/utilities/app_utils.dart';
 import 'package:musify/utilities/async_loader.dart';
 import 'package:musify/utilities/flutter_toast.dart';
 import 'package:musify/widgets/artist_shelf.dart';
+import 'package:musify/widgets/harmony_reveal.dart';
 import 'package:musify/widgets/mini_player_bottom_space.dart';
 import 'package:musify/widgets/playlist_hero_artwork.dart';
 import 'package:musify/widgets/playlist_page/add_to_playlist_button.dart';
@@ -218,9 +220,11 @@ class _ArtistPageState extends State<ArtistPage> {
             slivers: [
               PlaylistSliverAppBar(
                 title: _artistTitle,
+                verified: _artist?['isVerifiedArtist'] == true,
                 artwork: PlaylistHeroArtwork(
                   _artist!,
                   cubeIcon: FluentIcons.person_24_filled,
+                  styled: true,
                 ),
               ),
               SliverToBoxAdapter(child: _buildHeaderSection()),
@@ -333,9 +337,10 @@ class _ArtistPageState extends State<ArtistPage> {
               songs: _catalog?['list'] as List?,
               requireSnapshotMatch: true,
             ),
-            IconButton.filledTonal(
+            IconButton(
               icon: const Icon(FluentIcons.arrow_sync_24_filled),
               iconSize: 24,
+              style: getHarmonyCircleActionStyle(Theme.of(context).colorScheme),
               onPressed: _refresh,
               tooltip: context.l10n!.update,
             ),
@@ -360,6 +365,8 @@ class _ArtistPageState extends State<ArtistPage> {
   Widget _buildTopSongsSection() {
     if (_topSongs.isEmpty) return const SizedBox.shrink();
 
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Column(
       children: [
         const SizedBox(height: 24),
@@ -372,20 +379,31 @@ class _ArtistPageState extends State<ArtistPage> {
           physics: const NeverScrollableScrollPhysics(),
           padding: commonListViewBottomPadding,
           itemCount: _topSongs.length,
-          itemBuilder: (context, index) => RepaintBoundary(
-            key: listItemKey('artist_top_song', index, _topSongs[index]),
-            child: SongBar(
-              _topSongs[index],
-              true,
-              rank: index + 1,
-              playCount: _topSongPlayCounts[index],
-              borderRadius: getItemBorderRadius(index, _topSongs.length),
-              onPlay: () => audioHandler.playPlaylistSong(
-                playlist: {'title': _artistTitle, 'list': _topSongs},
-                songIndex: index,
+          itemBuilder: (context, index) {
+            final songBar = RepaintBoundary(
+              key: listItemKey('artist_top_song', index, _topSongs[index]),
+              child: SongBar(
+                _topSongs[index],
+                true,
+                rank: index + 1,
+                playCount: _topSongPlayCounts[index],
+                borderRadius: BorderRadius.circular(18),
+                backgroundColor: getHarmonyCardColor(colorScheme),
+                border: getHarmonyCardBorder(colorScheme),
+                boxShadow: getHarmonyCardShadow(colorScheme),
+                onPlay: () => audioHandler.playPlaylistSong(
+                  playlist: {'title': _artistTitle, 'list': _topSongs},
+                  songIndex: index,
+                ),
               ),
-            ),
-          ),
+            );
+            final revealed = HarmonyReveal(child: songBar);
+            if (index == _topSongs.length - 1) return revealed;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: revealed,
+            );
+          },
         ),
       ],
     );

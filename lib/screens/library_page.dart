@@ -31,16 +31,91 @@ import 'package:musify/services/playlist_download_service.dart';
 import 'package:musify/services/playlists_manager.dart';
 import 'package:musify/services/router_service.dart';
 import 'package:musify/services/settings_manager.dart';
+import 'package:musify/theme/app_themes.dart';
 import 'package:musify/utilities/app_utils.dart';
 import 'package:musify/utilities/async_loader.dart';
 import 'package:musify/utilities/flutter_toast.dart';
+import 'package:musify/utilities/harmony_dialogs.dart';
 import 'package:musify/utilities/offline_playlist_dialogs.dart';
 import 'package:musify/utilities/playlist_dialogs.dart';
 import 'package:musify/utilities/playlist_utils.dart';
 import 'package:musify/widgets/confirmation_dialog.dart';
+import 'package:musify/widgets/harmony_reveal.dart';
 import 'package:musify/widgets/mini_player_bottom_space.dart';
 import 'package:musify/widgets/playlist_bar.dart';
 import 'package:musify/widgets/section_header.dart';
+
+class _LibraryQuickAccessTile extends StatelessWidget {
+  const _LibraryQuickAccessTile({
+    required this.title,
+    required this.onTap,
+    required this.icon,
+  });
+
+  final String title;
+  final VoidCallback onTap;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: getHarmonyCardColor(colorScheme),
+        borderRadius: BorderRadius.circular(18),
+        border: getHarmonyCardBorder(colorScheme),
+        boxShadow: getHarmonyCardShadow(colorScheme),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(18),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          splashColor: colorScheme.primary.withValues(alpha: 0.12),
+          highlightColor: colorScheme.primary.withValues(alpha: 0.06),
+          child: SizedBox(
+            height: 64,
+            child: Row(
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: colorScheme.primary.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: colorScheme.primary, size: 25),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.bodyMedium
+                        ?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Padding(
+                  padding: const EdgeInsets.only(right: 12),
+                  child: Icon(
+                    FluentIcons.chevron_right_20_regular,
+                    size: 18,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class LibraryPage extends StatefulWidget {
   const LibraryPage({super.key});
@@ -203,89 +278,91 @@ class _LibraryPageState extends State<LibraryPage> {
 
     final hasFolders = folders.isNotEmpty;
     final hasCustomPlaylists = playlistsNotInFolders.isNotEmpty;
-    final hasLibraryContent = !isOffline || hasFolders || hasCustomPlaylists;
 
     final slivers = <Widget>[];
 
-    if (hasLibraryContent) {
+    // Quick access tiles sit above the custom-library section so that the
+    // section label stays directly above the folders and custom playlists.
+    if (!isOffline) {
       slivers.add(
         SliverToBoxAdapter(
           child: Column(
             children: [
-              SectionHeader(
-                title: context.l10n!.customPlaylists,
-                icon: FluentIcons.library_24_filled,
-                actionButton: isOffline
-                    ? null
-                    : Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            padding: const EdgeInsets.symmetric(horizontal: 2),
-                            onPressed: _showCreateFolderDialog,
-                            icon: Icon(
-                              FluentIcons.folder_add_24_regular,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                            tooltip: context.l10n!.createFolder,
-                          ),
-                          IconButton(
-                            padding: const EdgeInsets.symmetric(horizontal: 2),
-                            onPressed: () => showCreatePlaylistDialog(context),
-                            icon: Icon(
-                              FluentIcons.add_24_regular,
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
+              Row(
+                children: [
+                  Expanded(
+                    child: _LibraryQuickAccessTile(
+                      icon: FluentIcons.heart_24_filled,
+                      title: context.l10n!.likedSongs,
+                      onTap: () => NavigationManager.router.go(
+                        '/library/userSongs/liked',
                       ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _LibraryQuickAccessTile(
+                      icon: FluentIcons.arrow_download_24_filled,
+                      title: 'Offline',
+                      onTap: () => NavigationManager.router.go(
+                        '/library/userSongs/offline',
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              if (!isOffline) ...[
-                PlaylistBar(
-                  context.l10n!.recentlyPlayed,
-                  onPressed: () =>
-                      NavigationManager.router.go('/library/userSongs/recents'),
-                  cubeIcon: FluentIcons.history_24_regular,
-                  borderRadius: commonCustomBarRadiusFirst,
-                  showBuildActions: false,
-                ),
-                PlaylistBar(
-                  context.l10n!.likedSongs,
-                  onPressed: () =>
-                      NavigationManager.router.go('/library/userSongs/liked'),
-                  cubeIcon: FluentIcons.heart_24_regular,
-                  showBuildActions: false,
-                ),
-                PlaylistBar(
-                  context.l10n!.offlineSongs,
-                  onPressed: () =>
-                      NavigationManager.router.go('/library/userSongs/offline'),
-                  cubeIcon: FluentIcons.cloud_off_24_regular,
-                  showBuildActions: false,
-                ),
-                PlaylistBar(
-                  context.l10n!.radioStations,
-                  onPressed: () =>
-                      NavigationManager.router.go('/library/radioStations'),
-                  cubeIcon: FluentIcons.sound_source_24_regular,
-                  borderRadius: hasCustomPlaylists || hasFolders
-                      ? BorderRadius.zero
-                      : commonCustomBarRadiusLast,
-                  showBuildActions: false,
-                ),
-              ],
+              const SizedBox(height: 10),
+              _LibraryQuickAccessTile(
+                icon: FluentIcons.history_24_filled,
+                title: 'Recently Played',
+                onTap: () =>
+                    NavigationManager.router.go('/library/userSongs/recents'),
+              ),
             ],
+          ),
+        ),
+      );
+    }
+
+    if (hasFolders || hasCustomPlaylists) {
+      slivers.add(
+        SliverToBoxAdapter(
+          child: SectionHeader(
+            title: context.l10n!.customPlaylists,
+            icon: FluentIcons.library_24_filled,
+            actionButton: isOffline
+                ? null
+                : Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        onPressed: _showCreateFolderDialog,
+                        icon: Icon(
+                          FluentIcons.folder_add_24_regular,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                        tooltip: context.l10n!.createFolder,
+                      ),
+                      IconButton(
+                        padding: const EdgeInsets.symmetric(horizontal: 2),
+                        onPressed: () => showCreatePlaylistDialog(context),
+                        icon: Icon(
+                          FluentIcons.add_24_regular,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
           ),
         ),
       );
 
       if (hasFolders) {
-        slivers.add(_buildFolderSliverList(folders, hasCustomPlaylists));
+        slivers.add(_buildFolderSliverList(folders));
       }
       if (hasCustomPlaylists) {
-        slivers.add(
-          _buildSliverPlaylistList(playlistsNotInFolders, hasItemsBefore: true),
-        );
+        slivers.add(_buildSliverPlaylistList(playlistsNotInFolders));
       }
     }
 
@@ -377,23 +454,16 @@ class _LibraryPageState extends State<LibraryPage> {
   Widget _buildSliverPlaylistList(
     List playlists, {
     bool isOfflinePlaylists = false,
-    bool hasItemsAfter = false,
-    bool hasItemsBefore = false,
   }) {
     return SliverPadding(
-      padding: hasItemsAfter ? EdgeInsets.zero : commonListViewBottomPadding,
+      padding: commonListViewBottomPadding,
       sliver: SliverList.builder(
         itemCount: playlists.length,
         itemBuilder: (BuildContext context, index) {
           final playlist = playlists[index];
           final isArtist = playlist['source']?.toString() == 'youtube-artist';
-          final borderRadius = getItemBorderRadius(
-            index,
-            playlists.length,
-            hasItemsBefore: hasItemsBefore,
-            hasItemsAfter: hasItemsAfter,
-          );
-          return PlaylistBar(
+          final colorScheme = Theme.of(context).colorScheme;
+          final bar = PlaylistBar(
             key: listItemKey('library_playlist', index, playlist),
             playlist['title'],
             playlistId: playlist['ytid'],
@@ -417,27 +487,44 @@ class _LibraryPageState extends State<LibraryPage> {
                       ? _showRemoveOfflinePlaylistDialog(playlist)
                       : _showRemovePlaylistDialog(playlist)
                 : null,
-            borderRadius: borderRadius,
+            backgroundColor: getHarmonyCardColor(colorScheme),
+            border: getHarmonyCardBorder(colorScheme),
+            boxShadow: getHarmonyCardShadow(colorScheme),
+            borderRadius: BorderRadius.circular(18),
+          );
+          if (index == playlists.length - 1) {
+            return HarmonyReveal(child: bar);
+          }
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: HarmonyReveal(child: bar),
           );
         },
       ),
     );
   }
 
-  Widget _buildFolderSliverList(List folders, bool hasPlaylistsAfter) {
+  Widget _buildFolderSliverList(List folders) {
     return SliverList.builder(
       itemCount: folders.length,
       itemBuilder: (BuildContext context, index) {
         final folder = folders[index];
-        final isLastFolder = index == folders.length - 1;
-        final borderRadius = isLastFolder && !hasPlaylistsAfter
-            ? commonCustomBarRadiusLast
-            : BorderRadius.zero;
-        return PlaylistBar(
+        final colorScheme = Theme.of(context).colorScheme;
+        final bar = PlaylistBar(
           folder['name'],
           playlistData: folder,
-          borderRadius: borderRadius,
+          backgroundColor: getHarmonyCardColor(colorScheme),
+          border: getHarmonyCardBorder(colorScheme),
+          boxShadow: getHarmonyCardShadow(colorScheme),
+          borderRadius: BorderRadius.circular(18),
           onDelete: () => _showDeleteFolderDialog(folder),
+        );
+        if (index == folders.length - 1) {
+          return HarmonyReveal(child: bar);
+        }
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: HarmonyReveal(child: bar),
         );
       },
     );
@@ -447,23 +534,16 @@ class _LibraryPageState extends State<LibraryPage> {
     BuildContext context,
     List playlists, {
     bool isOfflinePlaylists = false,
-    bool hasItemsAfter = false,
-    bool hasItemsBefore = false,
   }) {
     return ListView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       itemCount: playlists.length,
-      padding: hasItemsAfter ? EdgeInsets.zero : commonListViewBottomPadding,
+      padding: commonListViewBottomPadding,
       itemBuilder: (BuildContext context, index) {
         final playlist = playlists[index];
-        final borderRadius = getItemBorderRadius(
-          index,
-          playlists.length,
-          hasItemsBefore: hasItemsBefore,
-          hasItemsAfter: hasItemsAfter,
-        );
-        return PlaylistBar(
+        final colorScheme = Theme.of(context).colorScheme;
+        final bar = PlaylistBar(
           key: listItemKey('library_playlist', index, playlist),
           playlist['title'],
           playlistId: playlist['ytid'],
@@ -483,7 +563,17 @@ class _LibraryPageState extends State<LibraryPage> {
                     ? _showRemoveOfflinePlaylistDialog(playlist)
                     : _showRemovePlaylistDialog(playlist)
               : null,
-          borderRadius: borderRadius,
+          backgroundColor: getHarmonyCardColor(colorScheme),
+          border: getHarmonyCardBorder(colorScheme),
+          boxShadow: getHarmonyCardShadow(colorScheme),
+          borderRadius: BorderRadius.circular(18),
+        );
+        if (index == playlists.length - 1) {
+          return HarmonyReveal(child: bar);
+        }
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: HarmonyReveal(child: bar),
         );
       },
     );
@@ -495,7 +585,7 @@ class _LibraryPageState extends State<LibraryPage> {
     showRemoveOfflinePlaylistDialog(context, playlistId);
   }
 
-  void _showRemovePlaylistDialog(Map playlist) => showDialog(
+  void _showRemovePlaylistDialog(Map playlist) => showHarmonyDialog(
     context: context,
     builder: (BuildContext context) {
       return ConfirmationDialog(
@@ -524,7 +614,7 @@ class _LibraryPageState extends State<LibraryPage> {
     },
   );
 
-  void _showCreateFolderDialog() => showDialog(
+  void _showCreateFolderDialog() => showHarmonyDialog(
     context: context,
     builder: (BuildContext context) {
       var folderName = '';
@@ -597,7 +687,7 @@ class _LibraryPageState extends State<LibraryPage> {
     },
   );
 
-  void _showDeleteFolderDialog(Map folder) => showDialog(
+  void _showDeleteFolderDialog(Map folder) => showHarmonyDialog(
     context: context,
     builder: (BuildContext context) {
       return ConfirmationDialog(

@@ -62,23 +62,37 @@ String formatSongTitle(String title) {
   return t.replaceAll(RegExp(r'\s{2,}'), ' ').trim();
 }
 
+/// Channel placeholder the YouTube Music client uses when the real artist
+/// channel of a track is not known.
+const _unknownMusicArtistChannelId = 'UC0000000000000000000000';
+
 Map<String, dynamic> returnSongLayout(
   int index,
   Video song, {
   String? playlistImage,
+  bool musicTrack = false,
 }) {
+  // YouTube Music tracks already carry the song title and the credited artist
+  // in separate fields, so they are never split. Only a YouTube video titles
+  // the song as 'Artist - Title'.
   // Split only on the first ' - ' so dashes inside the title are preserved.
-  final sep = song.title.indexOf(' - ');
+  final sep = musicTrack ? -1 : song.title.indexOf(' - ');
   final artist = sep != -1 ? song.title.substring(0, sep) : song.author;
   final rawTitle = sep != -1 ? song.title.substring(sep + 3) : song.title;
   final title = formatSongTitle(rawTitle);
+  final channelId = song.channelId.toString();
 
   return {
     'id': index,
     'ytid': song.id.toString(),
     'title': title.isEmpty ? rawTitle.trim() : title,
     'artist': artist,
-    'artistId': song.channelId.toString(),
+    // A placeholder channel is not an artist identity.
+    'artistId': channelId == _unknownMusicArtistChannelId ? '' : channelId,
+    // Verified badge authority: only a YouTube Music music-track credit on a
+    // real artist channel marks the artist as verified. Name strings and
+    // upload channels never do.
+    'artistVerified': musicTrack && channelId != _unknownMusicArtistChannelId,
     'videoAuthor': song.author,
     'image': playlistImage ?? song.thumbnails.standardResUrl,
     'lowResImage': playlistImage ?? song.thumbnails.lowResUrl,

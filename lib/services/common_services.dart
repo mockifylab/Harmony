@@ -59,6 +59,11 @@ ValueNotifier<List> userOfflineSongs = ValueNotifier<List>(
   Hive.box('userNoBackup').get('offlineSongs', defaultValue: []),
 );
 
+/// Songs whose offline download is currently running, by ytid. Every download
+/// button watches this, so a download started anywhere is visible everywhere.
+final ValueNotifier<Set<String>> activeSongDownloads =
+    ValueNotifier<Set<String>>(<String>{});
+
 Set<String> _createSongIdCache(ValueNotifier<List> source) {
   final cache = _songIds(source.value);
 
@@ -158,10 +163,16 @@ Future<bool> _validateCachedUrl(String cachedUrl) async {
   }
 }
 
-Future<List> fetchSongsList(String searchQuery) async {
+Future<List> fetchSongsList(
+  String searchQuery, {
+  SearchFilter filter = TypeFilters.video,
+}) async {
   try {
     // If not in cache, perform the search
-    final List<Video> searchResults = await ytClient.search.search(searchQuery);
+    final List<Video> searchResults = await ytClient.search.search(
+      searchQuery,
+      filter: filter,
+    );
     final songsList = searchResults
         .map((video) => returnSongLayout(0, video))
         .toList();
@@ -171,6 +182,32 @@ Future<List> fetchSongsList(String searchQuery) async {
     logger.log('Error in fetchSongsList', error: e, stackTrace: stackTrace);
     return [];
   }
+}
+
+/// Home "New Releases" rows. Each category is a real upload-date-sorted YouTube
+/// search, so a row only appears when YouTube actually returns fresh matches.
+/// Home focuses on Punjabi releases; other categories were dropped from the
+/// Home presentation (the map stays so rows remain data-driven).
+const newReleaseCategories = <String, String>{
+  'New Punjabi Releases': 'Punjabi new songs',
+};
+
+/// Newest uploads per category, keyed by the display title of the row.
+Future<Map<String, List>> getNewReleases() async {
+  final entries = await Future.wait(
+    newReleaseCategories.entries.map((category) async {
+      final songs = await fetchSongsList(
+        category.value,
+        filter: SortFilters.uploadDate,
+      );
+      return MapEntry(
+        category.key,
+        _deduplicateAndShuffle(songs, maxSongs: 20),
+      );
+    }),
+  );
+
+  return Map.fromEntries(entries);
 }
 
 Future<List> getRecommendedSongs() async {
@@ -195,11 +232,107 @@ Future<List> _getRecommendationsFromRecentlyPlayed() async {
     userRecentlyPlayed.value,
   )..shuffle()).take(5).toList();
 
-  return _getRecommendationsFromSeedSongs(recent);
+  // The home section lists far more tracks than playlist-page suggestions,
+  // so the read caps are raised here; the related lists are already fetched
+  // in full, which keeps the extra cost bounded to local work.
+  return _getRecommendationsFromSeedSongs(
+    recent,
+    limit: 60,
+    relatedPerSeed: 12,
+  );
+}
+
+/// How many of the user's strongest taste signals seed home recommendations.
+const _tasteSeedLimit = 6;
+
+/// How many tracks a single custom playlist contributes as a taste signal.
+const _playlistTasteSample = 4;
+
+/// Ranks the user's stored listening signals by strength. A liked song is
+/// explicit intent, a recently played song weighs by play count and recency,
+/// and songs the user filed into their own playlists add a weaker signal.
+/// Everything comes from real stored state; no artist or track is invented.
+List<({Map song, double weight})> _rankedTasteSignals() {
+  final weights = <String, double>{};
+  final songsById = <String, Map>{};
+
+  void consider(dynamic rawSong, double weight) {
+    if (rawSong is! Map) return;
+    final song = Map<String, dynamic>.from(rawSong);
+    final ytid = song['ytid']?.toString() ?? '';
+    if (ytid.isEmpty) return;
+    songsById[ytid] = song;
+    weights[ytid] = (weights[ytid] ?? 0) + weight;
+  }
+
+  for (final song in userLikedSongsList.value) {
+    consider(song, 3);
+  }
+
+  // The history stores the newest play first, so the index doubles as recency.
+  final recent = userRecentlyPlayed.value;
+  for (var index = 0; index < recent.length; index++) {
+    final entry = recent[index];
+    final plays = entry is Map
+        ? ((entry['listeningCount'] as num?)?.toDouble() ?? 1)
+        : 1;
+    consider(
+      entry,
+      (1 + plays.clamp(1, 4).toDouble()) * (1 - index / recent.length),
+    );
+  }
+
+  // A playlist track is a deliberate keep, but a weaker one than a like, so
+  // only a few tracks per playlist are sampled.
+  for (final playlist in userCustomPlaylists.value) {
+    final songs = playlist['list'] is List
+        ? playlist['list'] as List
+        : const [];
+    for (final song in songs.take(_playlistTasteSample)) {
+      consider(song, 1);
+    }
+  }
+
+  final ranked = weights.entries.toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+
+  return [
+    for (final entry in ranked)
+      (song: songsById[entry.key]!, weight: entry.value),
+  ];
+}
+
+/// Home recommendation seeds: the strongest real taste signals available.
+List<Map> _tasteSeedSongs({int limit = _tasteSeedLimit}) => [
+  for (final signal in _rankedTasteSignals().take(limit)) signal.song,
+];
+
+/// The artists behind the user's strongest signals, most-signalled first.
+/// Derived from stored taste so discovery never names an artist for the user.
+List<String> _tasteArtistQueries({int limit = 3}) {
+  final weights = <String, double>{};
+  final names = <String, String>{};
+
+  for (final signal in _rankedTasteSignals()) {
+    final artist = signal.song['artist']?.toString().trim() ?? '';
+    if (artist.isEmpty) continue;
+    final key = artist.toLowerCase();
+    names.putIfAbsent(key, () => artist);
+    weights[key] = (weights[key] ?? 0) + signal.weight;
+  }
+
+  final ranked = weights.entries.toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+
+  return [for (final entry in ranked.take(limit)) names[entry.key]!];
 }
 
 /// Expands seed songs into related videos and ranks them for home and playlist recommendations.
-Future<List> _getRecommendationsFromSeedSongs(List seedSongs) async {
+Future<List> _getRecommendationsFromSeedSongs(
+  List seedSongs, {
+  int limit = 15,
+  int relatedPerSeed = 8,
+}) async {
   final seeds = seedSongs
       .whereType<Map>()
       .where((song) => (song['ytid']?.toString() ?? '').isNotEmpty)
@@ -215,10 +348,10 @@ Future<List> _getRecommendationsFromSeedSongs(List seedSongs) async {
     try {
       final song = await ytClient.videos.get(songData['ytid']);
       final related = await ytClient.videos.getRelatedVideos(song) ?? [];
-      for (var i = 0; i < related.length && i < 8; i++) {
+      for (var i = 0; i < related.length && i < relatedPerSeed; i++) {
         final s = returnSongLayout(0, related[i]);
         final id = s['ytid'];
-        final positionWeight = 1.0 - (i / 8);
+        final positionWeight = 1.0 - (i / relatedPerSeed);
         final recencyWeight = 1.0 - (seedIndex / seeds.length);
         scores[id] = (scores[id] ?? 0) + positionWeight * recencyWeight;
         songMap[id] = s;
@@ -236,7 +369,7 @@ Future<List> _getRecommendationsFromSeedSongs(List seedSongs) async {
 
   final sorted = scores.entries.toList()
     ..sort((a, b) => b.value.compareTo(a.value));
-  return sorted.take(15).map((e) => songMap[e.key]!).toList();
+  return sorted.take(limit).map((e) => songMap[e.key]!).toList();
 }
 
 /// Number of playlist tracks used to seed recommendations while keeping network cost bounded.
@@ -306,39 +439,97 @@ List<Map> _sampleSeedSongs(List songs, int count) {
 }
 
 Future<List> _getRecommendationsFromMixedSources() async {
-  final playlistSongs = [
-    ...userLikedSongsList.value,
-    ...userRecentlyPlayed.value,
+  // Taste leads: the user's own listening, likes and playlist picks expand
+  // into related tracks through the same seed engine the external path and
+  // the playlist suggestions already use.
+  final tasteFuture = _getRecommendationsFromSeedSongs(
+    _tasteSeedSongs(),
+    limit: 40,
+    relatedPerSeed: 10,
+  );
+
+  // Discovery only fills what taste leaves over. Artist searches are derived
+  // from the user's own history; the fixed terms are genres and regions, so no
+  // artist is ever hardcoded here.
+  final discoveryQueries = <String>[
+    'Punjabi trending songs',
+    'Punjabi new songs',
+    'Punjabi latest releases',
+    'Urdu rap',
+    'Pakistani hip hop',
+    'Indian hip hop',
+    ..._tasteArtistQueries(),
   ];
 
-  if (globalSongs.isEmpty) {
-    const playlistId = 'PLgzTt0k8mXzEk586ze4BjvDXR7c-TUSnx';
-    globalSongs = await getSongsFromPlaylist(playlistId);
-  }
-  playlistSongs.addAll(globalSongs.take(10));
+  final perQueryResults = <List<Map>>[];
 
-  if (userCustomPlaylists.value.isNotEmpty) {
-    for (final userPlaylist in userCustomPlaylists.value) {
-      final _list = List.from(userPlaylist['list'] as List)..shuffle();
-      playlistSongs.addAll(_list.take(5));
+  try {
+    final searchResults = await Future.wait(
+      discoveryQueries.map(fetchSongsList),
+    );
+
+    for (final songs in searchResults) {
+      final valid =
+          songs
+              .whereType<Map>()
+              .where((song) => (song['ytid']?.toString() ?? '').isNotEmpty)
+              .toList()
+            ..shuffle();
+      if (valid.isNotEmpty) perQueryResults.add(valid);
+    }
+  } catch (e, stackTrace) {
+    logger.log(
+      'Harmony discovery search error',
+      error: e,
+      stackTrace: stackTrace,
+    );
+  }
+
+  // Interleave the queries round-robin so each seed contributes before any one
+  // seed is asked for a second track; otherwise a single prolific query would
+  // fill the whole list.
+  final interleaved = <Map>[];
+  var longest = 0;
+  for (final songs in perQueryResults) {
+    if (songs.length > longest) longest = songs.length;
+  }
+  for (var rank = 0; rank < longest; rank++) {
+    for (final songs in perQueryResults) {
+      if (rank < songs.length) interleaved.add(songs[rank]);
     }
   }
 
-  return _deduplicateAndShuffle(playlistSongs);
+  // Taste-expanded tracks lead the rail and discovery follows; the per-artist
+  // guard below keeps either side from flooding it.
+  final merged = <Map>[...(await tasteFuture).whereType<Map>(), ...interleaved];
+
+  // Home lists 50+ tracks, so the cap is raised well above the default used
+  // by the release rows; the per-artist diversity guard still applies.
+  return _deduplicateAndShuffle(merged, maxSongs: 60);
 }
 
-List _deduplicateAndShuffle(List playlistSongs) {
+List _deduplicateAndShuffle(List playlistSongs, {int maxSongs = 15}) {
+  const maxSongsPerArtist = 2;
+
   final seenYtIds = <String>{};
+  final perArtistCount = <String, int>{};
   final uniqueSongs = <Map>[];
 
-  playlistSongs.shuffle();
+  for (final song in playlistSongs.whereType<Map>()) {
+    if (uniqueSongs.length >= maxSongs) break;
 
-  for (final song in playlistSongs) {
-    if (song['ytid'] != null && seenYtIds.add(song['ytid'])) {
-      uniqueSongs.add(song);
-      // Early exit when we have enough songs
-      if (uniqueSongs.length >= 15) break;
+    final ytid = song['ytid']?.toString();
+    if (ytid == null || ytid.isEmpty || !seenYtIds.add(ytid)) continue;
+
+    // Diversity guard: no single artist may take more than a couple of slots.
+    final artist = (song['artist']?.toString() ?? '').trim().toLowerCase();
+    if (artist.isNotEmpty) {
+      final used = perArtistCount[artist] ?? 0;
+      if (used >= maxSongsPerArtist) continue;
+      perArtistCount[artist] = used + 1;
     }
+
+    uniqueSongs.add(song);
   }
 
   return uniqueSongs;
@@ -830,6 +1021,26 @@ Future<String?> getSongLyrics(String? artist, String title) async {
 }
 
 Future<bool> makeSongOffline(dynamic song) async {
+  final ytid = song['ytid'];
+  final skipsDownload =
+      ytid is! String ||
+      ytid.isEmpty ||
+      (isSongAlreadyOffline(ytid) &&
+          await File(FilePaths.getAudioPath(ytid)).exists());
+
+  if (skipsDownload) {
+    return _downloadSongOffline(song);
+  }
+
+  activeSongDownloads.value = {...activeSongDownloads.value, ytid};
+  try {
+    return await _downloadSongOffline(song);
+  } finally {
+    activeSongDownloads.value = {...activeSongDownloads.value}..remove(ytid);
+  }
+}
+
+Future<bool> _downloadSongOffline(dynamic song) async {
   try {
     final String? ytid = song['ytid'];
 
@@ -1020,7 +1231,7 @@ Future<T> _sponsorSerialCall<T>(Future<T> Function() action) {
 /// itself, so they last exactly as long as it does: they are not backed up,
 /// they never expire, and removing the song removes them.
 ///
-/// Looked up once per song: a stored result — including a confirmed empty one —
+/// Looked up once per song: a stored result â€” including a confirmed empty one â€”
 /// is never fetched again.
 Future<void> cacheSponsorBlockSegments(String ytid) async {
   try {

@@ -46,6 +46,7 @@ import 'package:musify/utilities/flutter_toast.dart';
 import 'package:musify/utilities/language_utils.dart';
 import 'package:musify/utilities/playlist_utils.dart';
 import 'package:musify/utilities/sharing_intent.dart';
+import 'package:musify/widgets/harmony_popup_controller.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:receive_sharing_intent/receive_sharing_intent.dart';
 
@@ -57,7 +58,6 @@ final logger = Logger();
 final appLinks = AppLinks();
 
 bool isFdroidBuild = false;
-bool isUpdateChecked = false;
 
 class Musify extends StatefulWidget {
   const Musify({super.key});
@@ -167,29 +167,11 @@ class _MusifyState extends State<Musify> with WidgetsBindingObserver {
     }
 
     if (!isFdroidBuild) {
-      if (shouldWeCheckUpdates.value == true) {
-        if (!isUpdateChecked && kReleaseMode) {
-          SchedulerBinding.instance.addPostFrameCallback((_) {
-            if (!offlineMode.value) {
-              checkAppUpdates();
-            }
-            isUpdateChecked = true;
-          });
+      SchedulerBinding.instance.addPostFrameCallback((_) async {
+        if (!offlineMode.value) {
+          await fetchAnnouncementOnly();
         }
-      } else {
-        if (shouldWeCheckUpdates.value == null) {
-          // show dialog that asks user if they want to enable update checks
-          SchedulerBinding.instance.addPostFrameCallback((_) {
-            showUpdateCheckDialog(NavigationManager().context);
-          });
-        } else {
-          SchedulerBinding.instance.addPostFrameCallback((_) async {
-            if (!offlineMode.value) {
-              await fetchAnnouncementOnly();
-            }
-          });
-        }
-      }
+      });
     }
   }
 
@@ -240,7 +222,7 @@ class _MusifyState extends State<Musify> with WidgetsBindingObserver {
           value: SystemUiOverlayStyle(
             statusBarColor: Colors.transparent,
             systemNavigationBarColor: Colors.transparent,
-            systemNavigationBarContrastEnforced: true,
+            systemNavigationBarContrastEnforced: false,
             statusBarBrightness: brightness == Brightness.dark
                 ? Brightness.light
                 : Brightness.dark,
@@ -251,17 +233,28 @@ class _MusifyState extends State<Musify> with WidgetsBindingObserver {
                 ? Brightness.light
                 : Brightness.dark,
           ),
-          child: MaterialApp.router(
-            themeMode: themeMode,
-            darkTheme: getAppTheme(colorScheme),
-            theme: getAppTheme(colorScheme),
-            localizationsDelegates: [
-              AppLocalizations.delegate,
-              ...GlobalMaterialLocalizations.delegates,
-            ],
-            supportedLocales: appSupportedLocales,
-            locale: languageSetting,
-            routerConfig: NavigationManager.router,
+          child: Listener(
+            // Ancestor of the Navigator/Overlay, so it still sees pointer moves
+            // over a popup menu's modal barrier. Used only to auto-dismiss an
+            // open Harmony menu on a deliberate swipe; inert otherwise.
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: HarmonyPopupController.instance.handlePointerDown,
+            onPointerMove: HarmonyPopupController.instance.handlePointerMove,
+            onPointerUp: HarmonyPopupController.instance.handlePointerUp,
+            onPointerCancel:
+                HarmonyPopupController.instance.handlePointerCancel,
+            child: MaterialApp.router(
+              themeMode: themeMode,
+              darkTheme: getAppTheme(colorScheme),
+              theme: getAppTheme(colorScheme),
+              localizationsDelegates: [
+                AppLocalizations.delegate,
+                ...GlobalMaterialLocalizations.delegates,
+              ],
+              supportedLocales: appSupportedLocales,
+              locale: languageSetting,
+              routerConfig: NavigationManager.router,
+            ),
           ),
         );
       },
@@ -271,6 +264,7 @@ class _MusifyState extends State<Musify> with WidgetsBindingObserver {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   await initialisation();
 
   runApp(const Musify());
@@ -291,7 +285,7 @@ Future<void> initialisation() async {
       builder: MusifyAudioHandler.new,
       config: const AudioServiceConfig(
         androidNotificationChannelId: 'com.gokadzev.musify',
-        androidNotificationChannelName: 'Musify',
+        androidNotificationChannelName: 'Harmony',
         androidNotificationIcon: 'drawable/ic_launcher_foreground',
         androidShowNotificationBadge: true,
         androidStopForegroundOnPause: false,
@@ -309,6 +303,9 @@ Future<void> initialisation() async {
       ),
     );
 
+    // Show the last played song without starting playback, from local history.
+    audioHandler.restoreLastPlayedSong();
+
     // Init router
     NavigationManager.instance;
 
@@ -325,7 +322,9 @@ Future<void> initialisation() async {
     }
 
     if (isFdroidBuild && !offlineMode.value) {
-      await fetchAnnouncementOnly();
+      // Fire-and-forget: a slow or unreachable announcement endpoint must
+      // never delay the first frame, so this result is not awaited.
+      unawaited(fetchAnnouncementOnly());
     }
   } catch (e, stackTrace) {
     logger.log('Initialization Error', error: e, stackTrace: stackTrace);

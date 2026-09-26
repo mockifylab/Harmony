@@ -20,6 +20,7 @@
  */
 
 import 'package:material_ui/material_ui.dart';
+import 'package:musify/theme/app_themes.dart';
 
 /// Creates a PopupMenuItem with consistent icon + label styling
 PopupMenuItem<T> buildPopupMenuItem<T>({
@@ -45,4 +46,33 @@ PopupMenuItem<T> buildPopupMenuItem<T>({
       ],
     ),
   );
+}
+
+/// Separator between menu sections, wearing the same subtle accent stroke as
+/// the Harmony list cards.
+PopupMenuDivider buildPopupMenuDivider(ColorScheme colorScheme) {
+  return PopupMenuDivider(
+    height: 13,
+    indent: 12,
+    endIndent: 12,
+    color: getHarmonyCardBorder(colorScheme).top.color,
+  );
+}
+
+/// Inserts a [buildPopupMenuDivider] before the first entry of every section
+/// listed in [startsSection], keeping the original order untouched.
+List<PopupMenuEntry<T>> buildPopupMenuSections<T>(
+  ColorScheme colorScheme,
+  List<PopupMenuEntry<T>> items, {
+  required Set<T> startsSection,
+}) {
+  final result = <PopupMenuEntry<T>>[];
+  for (final item in items) {
+    final value = item is PopupMenuItem<T> ? item.value : null;
+    if (value != null && startsSection.contains(value) && result.isNotEmpty) {
+      result.add(buildPopupMenuDivider(colorScheme));
+    }
+    result.add(item);
+  }
+  return result;
 }

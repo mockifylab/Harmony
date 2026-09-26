@@ -58,7 +58,7 @@ class PlaylistArtwork extends StatelessWidget {
         width: size,
         height: size,
         child: Image(
-          image: provider,
+          image: ResizeImage.resizeIfNeeded((size * 2).round(), null, provider),
           height: size,
           width: size,
           fit: BoxFit.cover,

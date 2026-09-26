@@ -22,6 +22,7 @@
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:musify/extensions/l10n.dart';
+import 'package:musify/utilities/playlist_utils.dart';
 import 'package:musify/widgets/playlist_artwork.dart';
 
 class PlaylistCube extends StatelessWidget {
@@ -46,17 +47,18 @@ class PlaylistCube extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final artwork = PlaylistUtils.resolvePlaylistArtwork(playlist);
     return Material(
       borderRadius: BorderRadius.circular(borderRadius),
       clipBehavior: Clip.antiAlias,
       child: Stack(
         children: [
           PlaylistArtwork(
-            playlistArtwork: playlist['image'],
+            playlistArtwork: artwork,
             size: size,
             cubeIcon: cubeIcon,
           ),
-          if (showTypeLabel && playlist['image'] != null)
+          if (showTypeLabel && artwork != null)
             Positioned(
               top: typeLabelOffset,
               right: typeLabelOffset,

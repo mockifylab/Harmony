@@ -1,3 +1,4 @@
+import 'dart:ui';
 /*
  *     Copyright (C) 2026 Valeri Gokadze
  *
@@ -34,46 +35,83 @@ import 'package:musify/services/playlist_download_service.dart';
 import 'package:musify/services/playlists_manager.dart';
 import 'package:musify/services/router_service.dart';
 import 'package:musify/services/settings_manager.dart';
-import 'package:musify/services/update_manager.dart';
-import 'package:musify/theme/app_colors.dart';
 import 'package:musify/theme/app_themes.dart';
 import 'package:musify/utilities/flutter_bottom_sheet.dart';
 import 'package:musify/utilities/flutter_toast.dart';
+import 'package:musify/utilities/harmony_dialogs.dart';
 import 'package:musify/utilities/language_utils.dart';
-import 'package:musify/utilities/url_launcher.dart';
 import 'package:musify/widgets/bottom_sheet_bar.dart';
 import 'package:musify/widgets/confirmation_dialog.dart';
-import 'package:musify/widgets/custom_bar.dart';
 import 'package:musify/widgets/mini_player_bottom_space.dart';
 import 'package:musify/widgets/section_header.dart';
-import 'package:musify/widgets/shapes/four_sided_cookie_shape.dart';
 
-class SettingsPage extends StatelessWidget {
-  const SettingsPage({super.key});
+class SettingsPage extends StatefulWidget {
+  const SettingsPage({super.key, required this.isOpen});
+
+  final bool isOpen;
+
+  @override
+  State<SettingsPage> createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
+  late final ScrollController _settingsScrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _settingsScrollController = ScrollController();
+  }
+
+  @override
+  void dispose() {
+    _settingsScrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final primaryColor = Theme.of(context).colorScheme.primary;
-    final activatedColor = Theme.of(context).colorScheme.secondaryContainer;
-    final inactivatedColor = Theme.of(context).colorScheme.surfaceContainerHigh;
+    final colorScheme = Theme.of(context).colorScheme;
 
-    return Scaffold(
-      appBar: AppBar(title: Text(context.l10n!.settings)),
-      body: SingleChildScrollView(
-        padding: commonSingleChildScrollViewPadding,
-        child: Column(
-          children: <Widget>[
-            _buildPreferencesSection(
-              context,
-              primaryColor,
-              activatedColor,
-              inactivatedColor,
+    return ClipRRect(
+      borderRadius: BorderRadius.zero,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        child: Container(
+          decoration: BoxDecoration(
+            color: getSettingsGlassColor(colorScheme),
+            border: Border(
+              right: BorderSide(
+                color: colorScheme.primary.withValues(alpha: 0.18),
+                width: 1,
+              ),
             ),
-            if (!offlineMode.value) _buildOnlineFeaturesSection(context),
-            _buildOthersSection(context),
-            const SizedBox(height: 20),
-            const MiniPlayerBottomSpace(),
-          ],
+          ),
+          child: SingleChildScrollView(
+            controller: _settingsScrollController,
+            padding: EdgeInsets.fromLTRB(
+              18,
+              MediaQuery.paddingOf(context).top + 18,
+              18,
+              28,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                _buildSettingsHeader(context),
+                const SizedBox(height: 22),
+                _buildPreferencesSection(
+                  context,
+                  colorScheme.primary,
+                  colorScheme.secondaryContainer,
+                  colorScheme.surfaceContainerHigh,
+                ),
+                _buildOnlineFeaturesSection(context),
+                const SizedBox(height: 20),
+                const MiniPlayerBottomSpace(),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -85,143 +123,85 @@ class SettingsPage extends StatelessWidget {
     Color activatedColor,
     Color inactivatedColor,
   ) {
-    final isOffline = offlineMode.value;
-
-    return Column(
-      children: [
-        SectionHeader(
-          title: context.l10n!.preferences,
-          icon: FluentIcons.options_24_filled,
-        ),
-        CustomBar(
-          context.l10n!.accentColor,
-          FluentIcons.color_24_regular,
-          borderRadius: commonCustomBarRadiusFirst,
-          onTap: () => _showAccentColorPicker(context),
-        ),
-        CustomBar(
-          context.l10n!.themeMode,
-          FluentIcons.weather_sunny_28_regular,
-          onTap: () => _showThemeModePicker(context),
-        ),
-        CustomBar(
-          context.l10n!.language,
-          FluentIcons.translate_24_regular,
-          onTap: () => _showLanguagePicker(context),
-        ),
-        CustomBar(
-          context.l10n!.audioQuality,
-          FluentIcons.music_note_1_24_regular,
-          onTap: () => _showAudioQualityPicker(context),
-        ),
-        CustomBar(
-          context.l10n!.equalizer,
-          FluentIcons.data_histogram_24_regular,
-          onTap: () => context.push('/settings/equalizer'),
-        ),
-        if (themeMode == ThemeMode.dark)
-          CustomBar(
-            context.l10n!.pureBlackTheme,
-            FluentIcons.color_background_24_regular,
-            description: context.l10n!.pureBlackThemeDescription,
+    return Container(
+      child: Column(
+        children: [
+          SectionHeader(
+            title: context.l10n!.preferences,
+            icon: FluentIcons.options_24_filled,
+          ),
+          _buildKitsuneSettingCard(
+            context,
+            title: context.l10n!.themeMode,
+            icon: FluentIcons.weather_sunny_28_regular,
+            onTap: () => _showThemeModePicker(context),
+          ),
+          _buildKitsuneSettingCard(
+            context,
+            title: context.l10n!.language,
+            icon: FluentIcons.translate_24_regular,
+            onTap: () => _showLanguagePicker(context),
+          ),
+          _buildKitsuneSettingCard(
+            context,
+            title: context.l10n!.audioQuality,
+            icon: FluentIcons.music_note_1_24_regular,
+            onTap: () => _showAudioQualityPicker(context),
+          ),
+          _buildKitsuneSettingCard(
+            context,
+            title: context.l10n!.equalizer,
+            icon: FluentIcons.data_histogram_24_regular,
+            onTap: () => context.push('/settings/equalizer'),
+          ),
+          if (themeMode == ThemeMode.dark)
+            _buildKitsuneSettingCard(
+              context,
+              title: context.l10n!.pureBlackTheme,
+              icon: FluentIcons.color_background_24_regular,
+              description: context.l10n!.pureBlackThemeDescription,
+              onTap: () => _togglePureBlack(context, !usePureBlackColor.value),
+              trailing: Switch(
+                value: usePureBlackColor.value,
+                onChanged: (value) => _togglePureBlack(context, value),
+              ),
+            ),
+          _buildKitsuneSettingCard(
+            context,
+            title: context.l10n!.dynamicColor,
+            icon: FluentIcons.toggle_left_24_regular,
+            description: context.l10n!.dynamicColorDescription,
+            onTap: () => _toggleSystemColor(context, !useSystemColor.value),
             trailing: Switch(
-              value: usePureBlackColor.value,
-              onChanged: (value) => _togglePureBlack(context, value),
+              value: useSystemColor.value,
+              onChanged: (value) => _toggleSystemColor(context, value),
             ),
           ),
-        CustomBar(
-          context.l10n!.dynamicColor,
-          FluentIcons.toggle_left_24_regular,
-          description: context.l10n!.dynamicColorDescription,
-          trailing: Switch(
-            value: useSystemColor.value,
-            onChanged: (value) => _toggleSystemColor(context, value),
-          ),
-        ),
-
-        ValueListenableBuilder<bool>(
-          valueListenable: showAudioQualityBadge,
-          builder: (_, value, __) {
-            return CustomBar(
-              context.l10n!.audioQualityBadge,
-              FluentIcons.badge_24_regular,
-              description: context.l10n!.audioQualityBadgeDescription,
-              trailing: Switch(
-                value: value,
-                onChanged: (value) => _toggleAudioQualityBadge(context, value),
-              ),
-            );
-          },
-        ),
-        ValueListenableBuilder<bool>(
-          valueListenable: useProxy,
-          builder: (_, value, __) {
-            return CustomBar(
-              context.l10n!.useProxy,
-              FluentIcons.shield_24_regular,
-              description: context.l10n!.useProxyDescription,
-              trailing: Switch(
-                value: value,
-                onChanged: (value) {
-                  useProxy.value = value;
-                  addOrUpdateData<bool>('settings', 'useProxy', value);
-                  showToast(context, context.l10n!.settingChangedMsg);
-                },
-              ),
-            );
-          },
-        ),
-        ValueListenableBuilder<bool>(
-          valueListenable: wrappedEnabled,
-          builder: (_, value, __) {
-            return CustomBar(
-              context.l10n!.listeningStats,
-              FluentIcons.clock_24_regular,
-              description: context.l10n!.listeningStatsDescription,
-              trailing: Switch(
-                value: value,
-                onChanged: (value) => _toggleWrapped(context, value),
-              ),
-            );
-          },
-        ),
-        ValueListenableBuilder<bool>(
-          valueListenable: offlineMode,
-          builder: (_, value, __) {
-            return CustomBar(
-              context.l10n!.offlineMode,
-              FluentIcons.cloud_off_24_regular,
-              description: context.l10n!.offlineModeDescription,
-              borderRadius: isOffline && isFdroidBuild
-                  ? commonCustomBarRadiusLast
-                  : BorderRadius.zero,
-              trailing: Switch(
-                value: value,
-                onChanged: (value) => _toggleOfflineMode(context, value),
-              ),
-            );
-          },
-        ),
-        if (!isFdroidBuild)
-          ValueListenableBuilder<bool?>(
-            valueListenable: shouldWeCheckUpdates,
+          ValueListenableBuilder<bool>(
+            valueListenable: useProxy,
             builder: (_, value, __) {
-              return CustomBar(
-                context.l10n!.automaticUpdateChecks,
-                FluentIcons.arrow_sync_24_regular,
-                description: context.l10n!.automaticUpdateChecksDescription,
-                borderRadius: offlineMode.value
-                    ? commonCustomBarRadiusLast
-                    : BorderRadius.zero,
+              return _buildKitsuneSettingCard(
+                context,
+                title: context.l10n!.useProxy,
+                icon: FluentIcons.shield_24_regular,
+                description: context.l10n!.useProxyDescription,
+                onTap: () {
+                  final newValue = !value;
+                  useProxy.value = newValue;
+                  addOrUpdateData<bool>('settings', 'useProxy', newValue);
+                },
                 trailing: Switch(
-                  value: value ?? false,
-                  onChanged: (value) =>
-                      _toggleAutomaticUpdateChecks(context, value),
+                  value: value,
+                  onChanged: (value) {
+                    useProxy.value = value;
+                    addOrUpdateData<bool>('settings', 'useProxy', value);
+                  },
                 ),
               );
             },
           ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -231,10 +211,12 @@ class SettingsPage extends StatelessWidget {
         ValueListenableBuilder<bool>(
           valueListenable: sponsorBlockSupport,
           builder: (_, value, __) {
-            return CustomBar(
-              'SponsorBlock',
-              FluentIcons.cut_24_regular,
+            return _buildKitsuneSettingCard(
+              context,
+              title: 'SponsorBlock',
+              icon: FluentIcons.cut_24_regular,
               description: context.l10n!.sponsorBlockDescription,
+              onTap: () => _toggleSponsorBlock(context, !value),
               trailing: Switch(
                 value: value,
                 onChanged: (value) => _toggleSponsorBlock(context, value),
@@ -245,15 +227,16 @@ class SettingsPage extends StatelessWidget {
         ValueListenableBuilder<bool>(
           valueListenable: playNextSongAutomatically,
           builder: (_, value, __) {
-            return CustomBar(
-              context.l10n!.automaticSongPicker,
-              FluentIcons.music_note_2_play_20_regular,
+            return _buildKitsuneSettingCard(
+              context,
+              title: context.l10n!.automaticSongPicker,
+              icon: FluentIcons.music_note_2_play_20_regular,
               description: context.l10n!.automaticSongPickerDescription,
+              onTap: () => _toggleAutoPlayNext(context, !value),
               trailing: Switch(
                 value: value,
                 onChanged: (value) {
                   _toggleAutoPlayNext(context, value);
-                  showToast(context, context.l10n!.settingChangedMsg);
                 },
               ),
             );
@@ -262,11 +245,12 @@ class SettingsPage extends StatelessWidget {
         ValueListenableBuilder<bool>(
           valueListenable: externalRecommendations,
           builder: (_, value, __) {
-            return CustomBar(
-              context.l10n!.externalRecommendations,
-              FluentIcons.channel_share_24_regular,
+            return _buildKitsuneSettingCard(
+              context,
+              title: context.l10n!.externalRecommendations,
+              icon: FluentIcons.channel_share_24_regular,
               description: context.l10n!.externalRecommendationsDescription,
-              borderRadius: commonCustomBarRadiusLast,
+              onTap: () => _toggleExternalRecommendations(context, !value),
               trailing: Switch(
                 value: value,
                 onChanged: (value) =>
@@ -277,7 +261,6 @@ class SettingsPage extends StatelessWidget {
         ),
 
         _buildToolsSection(context),
-        _buildSponsorSection(context),
       ],
     );
   }
@@ -289,10 +272,10 @@ class SettingsPage extends StatelessWidget {
           title: context.l10n!.tools,
           icon: FluentIcons.toolbox_24_filled,
         ),
-        CustomBar(
-          context.l10n!.clearCache,
-          FluentIcons.broom_24_regular,
-          borderRadius: commonCustomBarRadiusFirst,
+        _buildKitsuneSettingCard(
+          context,
+          title: context.l10n!.clearCache,
+          icon: FluentIcons.broom_24_regular,
           onTap: () async {
             final cleared = await clearCache();
             showToast(
@@ -301,9 +284,10 @@ class SettingsPage extends StatelessWidget {
             );
           },
         ),
-        CustomBar(
-          context.l10n!.clearSearchHistory,
-          FluentIcons.history_24_regular,
+        _buildKitsuneSettingCard(
+          context,
+          title: context.l10n!.clearSearchHistory,
+          icon: FluentIcons.history_24_regular,
           onTap: () => _showConfirmationDialog(
             context: context,
             confirmationMessage: context.l10n!.clearSearchHistoryQuestion,
@@ -314,9 +298,10 @@ class SettingsPage extends StatelessWidget {
             },
           ),
         ),
-        CustomBar(
-          context.l10n!.clearRecentlyPlayed,
-          FluentIcons.receipt_play_24_regular,
+        _buildKitsuneSettingCard(
+          context,
+          title: context.l10n!.clearRecentlyPlayed,
+          icon: FluentIcons.receipt_play_24_regular,
           onTap: () => _showConfirmationDialog(
             context: context,
             confirmationMessage: context.l10n!.clearRecentlyPlayedQuestion,
@@ -327,59 +312,48 @@ class SettingsPage extends StatelessWidget {
             },
           ),
         ),
-        CustomBar(
-          context.l10n!.clearListeningStats,
-          FluentIcons.clock_24_regular,
+        _buildKitsuneSettingCard(
+          context,
+          title: context.l10n!.clearListeningStats,
+          icon: FluentIcons.data_bar_vertical_24_regular,
           onTap: () => _showConfirmationDialog(
             context: context,
             confirmationMessage: context.l10n!.clearListeningStatsQuestion,
-            submitMessage: context.l10n!.delete,
-            isDangerous: true,
             onSubmit: () async {
-              audioHandler.resetListeningStatsSession(flushStats: false);
               await listeningStatsService.clearStats();
-              audioHandler.startListeningStatsSessionIfNeeded();
-              if (context.mounted) {
-                showToast(context, '${context.l10n!.listeningStatsCleared}!');
-              }
+              showToast(context, context.l10n!.listeningStatsCleared);
             },
           ),
         ),
-        CustomBar(
-          context.l10n!.deleteDownloads,
-          FluentIcons.delete_24_regular,
+        _buildKitsuneSettingCard(
+          context,
+          title: context.l10n!.deleteDownloads,
+          icon: FluentIcons.delete_24_regular,
           onTap: () => _showConfirmationDialog(
             context: context,
             confirmationMessage: context.l10n!.deleteDownloadsQuestion,
-            submitMessage: context.l10n!.delete,
-            isDangerous: true,
             onSubmit: () async {
-              try {
-                await offlinePlaylistService.deleteAllDownloads();
-                if (context.mounted) {
-                  showToast(context, context.l10n!.downloadsDeleted);
-                }
-              } catch (e) {
-                if (context.mounted) {
-                  showToast(context, context.l10n!.error);
-                }
-              }
+              await OfflinePlaylistService().deleteAllDownloads();
+              showToast(context, context.l10n!.downloadsDeleted);
             },
           ),
         ),
-        CustomBar(
-          context.l10n!.importSpotifyPlaylist,
-          FluentIcons.arrow_upload_24_regular,
+        _buildKitsuneSettingCard(
+          context,
+          title: context.l10n!.importSpotifyPlaylist,
+          icon: FluentIcons.arrow_upload_24_regular,
           onTap: () => context.push('/settings/import-spotify-playlist'),
         ),
-        CustomBar(
-          context.l10n!.backupUserData,
-          FluentIcons.cloud_sync_24_regular,
+        _buildKitsuneSettingCard(
+          context,
+          title: context.l10n!.backupUserData,
+          icon: FluentIcons.cloud_sync_24_regular,
           onTap: () => _backupUserData(context),
         ),
-        CustomBar(
-          context.l10n!.restoreUserData,
-          FluentIcons.cloud_add_24_regular,
+        _buildKitsuneSettingCard(
+          context,
+          title: context.l10n!.restoreUserData,
+          icon: FluentIcons.cloud_add_24_regular,
           onTap: () async {
             try {
               final result = await restoreData(context);
@@ -429,161 +403,188 @@ class SettingsPage extends StatelessWidget {
             }
           },
         ),
-        if (!isFdroidBuild)
-          CustomBar(
-            context.l10n!.downloadAppUpdate,
-            FluentIcons.arrow_download_24_regular,
-            borderRadius: commonCustomBarRadiusLast,
-            onTap: checkAppUpdates,
-          ),
       ],
     );
   }
 
-  Widget _buildSponsorSection(BuildContext context) {
+  Widget _buildSettingsHeader(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Column(
-      children: [
-        SectionHeader(
-          title: context.l10n!.becomeSponsor,
-          icon: FluentIcons.heart_24_filled,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 22),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            colorScheme.primaryContainer,
+            colorScheme.surfaceContainerHighest,
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        Card(
-          margin: const EdgeInsets.only(bottom: 8),
-          elevation: 0,
-          color: colorScheme.primaryContainer,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: colorScheme.primary.withValues(alpha: 0.16),
+          width: 1,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colorScheme.primary.withValues(alpha: 0.10),
+            blurRadius: 14,
+            spreadRadius: 0,
           ),
-          child: InkWell(
-            onTap: () => launchURL(Uri.parse('https://ko-fi.com/gokadzev')),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
-              child: Row(
-                children: [
-                  FourSidedCookieShape(
-                    size: 44,
-                    color: colorScheme.onPrimaryContainer.withValues(
-                      alpha: 0.14,
-                    ),
-                    child: Icon(
-                      FluentIcons.heart_24_filled,
-                      color: colorScheme.onPrimaryContainer,
-                      size: 24,
-                    ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 58,
+            height: 58,
+            decoration: BoxDecoration(
+              color: colorScheme.onPrimaryContainer.withValues(alpha: 0.10),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Icon(
+              FluentIcons.settings_24_filled,
+              size: 30,
+              color: colorScheme.onPrimaryContainer,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Harmony By Aasif',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.4,
                   ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Text(
-                      context.l10n!.sponsorProject,
-                      style: TextStyle(
-                        color: colorScheme.onPrimaryContainer,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  context.l10n!.settings,
+                  style: TextStyle(
+                    color: colorScheme.onPrimaryContainer.withValues(
+                      alpha: 0.72,
+                    ),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildKitsuneSettingCard(
+    BuildContext context, {
+    required String title,
+    required IconData icon,
+    String? description,
+    Widget? trailing,
+    VoidCallback? onTap,
+    bool dangerous = false,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return _ScrollRevealCard(
+      active: widget.isOpen,
+      scrollController: _settingsScrollController,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Container(
+          decoration: BoxDecoration(
+            color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: colorScheme.primary.withValues(alpha: 0.16),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: colorScheme.primary.withValues(alpha: 0.10),
+                blurRadius: 14,
+                spreadRadius: 0,
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(18),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(18),
+              onTap: onTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 13,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color:
+                            (dangerous
+                                    ? colorScheme.error
+                                    : colorScheme.primary)
+                                .withValues(alpha: 0.10),
+                        borderRadius: BorderRadius.circular(13),
+                      ),
+                      child: Icon(icon, size: 21, color: colorScheme.primary),
+                    ),
+                    const SizedBox(width: 13),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (description != null) ...[
+                            const SizedBox(height: 3),
+                            Text(
+                              description,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 12,
+                                height: 1.25,
+                                color: colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
-                  ),
-                ],
+                    if (trailing != null) ...[
+                      const SizedBox(width: 10),
+                      trailing,
+                    ] else if (onTap != null) ...[
+                      const SizedBox(width: 8),
+                      Icon(
+                        FluentIcons.chevron_right_20_regular,
+                        size: 18,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ],
+                  ],
+                ),
               ),
             ),
           ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildOthersSection(BuildContext context) {
-    return Column(
-      children: [
-        SectionHeader(
-          title: context.l10n!.others,
-          icon: FluentIcons.more_circle_24_filled,
-        ),
-        CustomBar(
-          context.l10n!.licenses,
-          FluentIcons.document_24_regular,
-          borderRadius: commonCustomBarRadiusFirst,
-          onTap: () => NavigationManager.router.go('/settings/license'),
-        ),
-        CustomBar(
-          context.l10n!.translate,
-          FluentIcons.translate_24_regular,
-          description: context.l10n!.translateDescription,
-          onTap: () =>
-              launchURL(Uri.parse('https://crowdin.com/project/musify')),
-        ),
-        CustomBar(
-          '${context.l10n!.copyLogs} (${logger.getLogCount()})',
-          FluentIcons.error_circle_24_regular,
-          onTap: () async => showToast(context, await logger.copyLogs(context)),
-        ),
-        CustomBar(
-          context.l10n!.about,
-          FluentIcons.book_information_24_regular,
-          borderRadius: commonCustomBarRadiusLast,
-          onTap: () => NavigationManager.router.go('/settings/about'),
-        ),
-      ],
-    );
-  }
-
-  void _showAccentColorPicker(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-
-    showCustomBottomSheet(
-      context,
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: GridView.builder(
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 5,
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-          ),
-          shrinkWrap: true,
-          physics: const BouncingScrollPhysics(),
-          itemCount: availableColors.length,
-          itemBuilder: (context, index) {
-            final color = availableColors[index];
-            final isSelected = color == primaryColorSetting;
-
-            return GestureDetector(
-              onTap: () {
-                addOrUpdateData<int>(
-                  'settings',
-                  'accentColor',
-                  color.toARGB32(),
-                );
-                Musify.updateAppState(
-                  context,
-                  newAccentColor: color,
-                  useSystemColor: false,
-                );
-                showToast(context, context.l10n!.accentChangeMsg);
-                Navigator.pop(context);
-              },
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 200),
-                decoration: BoxDecoration(
-                  color: color,
-                  shape: BoxShape.circle,
-                  border: isSelected
-                      ? Border.all(color: colorScheme.onSurface, width: 3)
-                      : null,
-                ),
-                child: isSelected
-                    ? Icon(
-                        FluentIcons.checkmark_20_filled,
-                        color: color.computeLuminance() > 0.5
-                            ? Colors.black
-                            : Colors.white,
-                        size: 24,
-                      )
-                    : null,
-              ),
-            );
-          },
         ),
       ),
     );
@@ -711,20 +712,17 @@ class SettingsPage extends StatelessWidget {
       newAccentColor: primaryColorSetting,
       useSystemColor: value,
     );
-    showToast(context, context.l10n!.settingChangedMsg);
   }
 
   void _togglePureBlack(BuildContext context, bool value) {
     addOrUpdateData<bool>('settings', 'usePureBlackColor', value);
     usePureBlackColor.value = value;
     Musify.updateAppState(context);
-    showToast(context, context.l10n!.settingChangedMsg);
   }
 
   void _toggleAudioQualityBadge(BuildContext context, bool value) {
     addOrUpdateData<bool>('settings', 'showAudioQualityBadge', value);
     showAudioQualityBadge.value = value;
-    showToast(context, context.l10n!.settingChangedMsg);
   }
 
   Future<void> _toggleWrapped(BuildContext context, bool value) async {
@@ -742,43 +740,21 @@ class SettingsPage extends StatelessWidget {
     if (value) {
       audioHandler.startListeningStatsSessionIfNeeded();
     }
-    if (context.mounted) {
-      showToast(context, context.l10n!.settingChangedMsg);
-    }
-  }
-
-  void _toggleOfflineMode(BuildContext context, bool value) {
-    addOrUpdateData<bool>('settings', 'offlineMode', value);
-    offlineMode.value = value;
-
-    // Trigger router refresh and notify about the change
-    NavigationManager.refreshRouter();
-
-    showToast(context, context.l10n!.settingChangedMsg);
   }
 
   void _toggleSponsorBlock(BuildContext context, bool value) {
     addOrUpdateData<bool>('settings', 'sponsorBlockSupport', value);
     sponsorBlockSupport.value = value;
-    showToast(context, context.l10n!.settingChangedMsg);
   }
 
   void _toggleAutoPlayNext(BuildContext context, bool value) {
     addOrUpdateData<bool>('settings', 'playNextSongAutomatically', value);
     playNextSongAutomatically.value = value;
-    showToast(context, context.l10n!.settingChangedMsg);
-  }
-
-  void _toggleAutomaticUpdateChecks(BuildContext context, bool value) {
-    addOrUpdateData<bool>('settings', 'shouldWeCheckUpdates', value);
-    shouldWeCheckUpdates.value = value;
-    showToast(context, context.l10n!.settingChangedMsg);
   }
 
   void _toggleExternalRecommendations(BuildContext context, bool value) {
     addOrUpdateData<bool>('settings', 'externalRecommendations', value);
     externalRecommendations.value = value;
-    showToast(context, context.l10n!.settingChangedMsg);
   }
 
   void _showConfirmationDialog({
@@ -788,7 +764,7 @@ class SettingsPage extends StatelessWidget {
     String? submitMessage,
     bool isDangerous = false,
   }) {
-    showDialog(
+    showHarmonyDialog(
       context: context,
       builder: (BuildContext context) {
         return ConfirmationDialog(
@@ -825,5 +801,127 @@ class SettingsPage extends StatelessWidget {
         );
       }
     }
+  }
+}
+
+class _ScrollRevealCard extends StatefulWidget {
+  const _ScrollRevealCard({
+    required this.active,
+    required this.scrollController,
+    required this.child,
+  });
+
+  final bool active;
+  final ScrollController scrollController;
+  final Widget child;
+
+  @override
+  State<_ScrollRevealCard> createState() => _ScrollRevealCardState();
+}
+
+class _ScrollRevealCardState extends State<_ScrollRevealCard>
+    with SingleTickerProviderStateMixin {
+  final GlobalKey _cardKey = GlobalKey();
+
+  late final AnimationController _animationController;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 260),
+      value: widget.active ? 1.0 : 0.0,
+    );
+
+    widget.scrollController.addListener(_updateFromScroll);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateFromScroll();
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _ScrollRevealCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    if (!oldWidget.active && widget.active) {
+      _animationController.value = 0.0;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _updateFromScroll(animate: true);
+      });
+    } else if (oldWidget.active && !widget.active) {
+      _animationController.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.scrollController.removeListener(_updateFromScroll);
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _updateFromScroll({bool animate = false}) {
+    if (!mounted || !widget.active) return;
+
+    final renderObject = _cardKey.currentContext?.findRenderObject();
+
+    if (renderObject is! RenderBox || !renderObject.hasSize) {
+      return;
+    }
+
+    final top = renderObject.localToGlobal(Offset.zero).dy;
+    final bottom = top + renderObject.size.height;
+
+    final mediaQuery = MediaQuery.of(context);
+    final viewportTop = mediaQuery.padding.top + 18.0;
+    final viewportBottom =
+        mediaQuery.size.height - mediaQuery.padding.bottom - 18.0;
+
+    const revealDistance = 120.0;
+
+    final fromBottom = ((viewportBottom - top) / revealDistance)
+        .clamp(0.0, 1.0)
+        .toDouble();
+
+    final fromTop = ((bottom - viewportTop) / revealDistance)
+        .clamp(0.0, 1.0)
+        .toDouble();
+
+    final target = fromBottom < fromTop ? fromBottom : fromTop;
+
+    if (animate) {
+      _animationController.animateTo(
+        target,
+        duration: const Duration(milliseconds: 280),
+        curve: Curves.easeOutCubic,
+      );
+    } else {
+      _animationController.value = Curves.easeOutCubic.transform(target);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _animationController,
+      builder: (context, child) {
+        final progress = _animationController.value;
+
+        return RepaintBoundary(
+          key: _cardKey,
+          child: Opacity(
+            opacity: progress,
+            child: Transform.translate(
+              offset: Offset(-28.0 * (1.0 - progress), 0),
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: widget.child,
+    );
   }
 }

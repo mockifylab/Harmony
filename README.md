@@ -1,23 +1,12 @@
 <div align="center">
-<img src="https://github.com/gokadzev/Musify/raw/master/.github/assets/Musify-banner.png" width="100%">
 
-# Musify
+# Harmony
 
-Unlock the full potential of music: Stream effortlessly with one app!
+**Version 1.0.0**
 
-[![Stars](https://img.shields.io/github/stars/gokadzev/Musify?style=flat-square&color=D3BEAB)](https://github.com/gokadzev/Musify/stargazers)
-[![Forks](https://img.shields.io/github/forks/gokadzev/Musify?style=flat-square&color=D3BEAB)](https://github.com/gokadzev/Musify/fork)
-[![Downloads](https://img.shields.io/github/downloads/gokadzev/Musify/total?style=flat-square&color=D3BEAB)](https://github.com/gokadzev/Musify/releases)
-[![GitHub release](https://img.shields.io/github/v/release/gokadzev/Musify?color=D3BEAB)](https://github.com/gokadzev/Musify/releases)
-[![License](https://img.shields.io/github/license/gokadzev/Musify?color=D3BEAB)](LICENSE)
+Harmony is an open-source visual redesign and rebrand of the original [Musify project by Valeri Gokadze / gokadzev](https://github.com/gokadzev/Musify). It retains Musify's GPL-3.0 foundation and adds Harmony branding, UI/UX refinements, animations, themes, and visual design work without claiming authorship of the original project.
 
----
-
-<a href="https://ko-fi.com/gokadzev" target="_blank" title="ko-fi">
-  <img src="https://github.com/user-attachments/assets/1c204507-d124-4b34-878b-96c39c9bb3f8"  alt="ko-fi badge" style="width: 150px;">
-</a>
-
-
+</div>
 
 ---
 
@@ -55,21 +44,22 @@ Material UI & accent colors & dynamic colors (Android 12+) <br/>
 
 ---
 
-## Download
+## Releases
 
+Harmony 1.0.0 has not been released yet. The following resources are for the original Musify project:
 
-[<img src="https://github.com/gokadzev/Musify/raw/master/.github/assets/get-it-on-github.png" alt="Get it on Github" height="80">](https://github.com/gokadzev/Musify/releases/latest)
-[<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png" alt="Get it on Fdroid" height="80">](https://f-droid.org/packages/com.gokadzev.musify.fdroid)
+- [Original Musify releases](https://github.com/gokadzev/Musify/releases/latest)
+- [Original Musify F-Droid listing](https://f-droid.org/packages/com.gokadzev.musify.fdroid)
 
 
 ---
 
-## Contributors
+## Upstream Contributors
 
-Special thanks to all contributors for their time and effort.
+Harmony retains credit for the original Musify contributors.
 
 <a href="https://github.com/gokadzev/Musify/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=gokadzev/Musify" alt="Contributors"/>
+  <img src="https://contrib.rocks/image?repo=gokadzev/Musify" alt="Original Musify contributors"/>
 </a>
 
 
@@ -77,45 +67,37 @@ Special thanks to all contributors for their time and effort.
 
 ## Contribute
 
-Contributions are always welcome. Please read our [contributing guidelines](https://github.com/gokadzev/Musify/blob/master/CONTRIBUTING.md) before contributing.
+Harmony retains the original [Musify contributing guidelines](https://github.com/gokadzev/Musify/blob/master/CONTRIBUTING.md).
 
 ---
 
 ## F.A.Q
 
-You can see frequently asked questions and their answers [here](https://github.com/gokadzev/Musify/discussions/728).
+The original Musify project maintains its [frequently asked questions](https://github.com/gokadzev/Musify/discussions/728).
 
 ---
 
 ## Credits
 
-[Musify](https://github.com/Harsh-23/Musify) - Original inspiration for the concept and name. It is now completely reimplemented with new design and branding.
+Harmony is based on the original [Musify project](https://github.com/gokadzev/Musify), created by [Valeri Gokadze / gokadzev](https://github.com/gokadzev). Harmony contributes a visual redesign, rebranding, UI/UX refinements, animations, themes, and related presentation work; it does not claim authorship of Musify's original foundation.
+
+The original Musify project acknowledges [Musify](https://github.com/Harsh-23/Musify) as inspiration for its concept and name.
 
 
 ---
 
 ## License
 
-```
-Copyright © 2026 Valeri Gokadze
-
-Musify is free software licensed under GPL v3.0. You may use, modify, and distribute
-this software freely, but must keep the source code open and publicly available, retain
-all copyright notices, disclose all changes made, and use the same GPL v3.0 license.
-
-Prohibited: Closed-source distributions or commercial redistribution of modified versions.
-```
-
-See the [GNU General Public License](https://github.com/gokadzev/Musify/blob/master/LICENSE) for full details.
+Harmony preserves the repository's [GNU General Public License v3.0](LICENSE), original copyright notices, and third-party attributions. See the [original Musify license](https://github.com/gokadzev/Musify/blob/master/LICENSE) for upstream reference.
 
 ---
 
 ## Disclaimer
 
 ```
-Musify and its contributors do not host, own, or distribute any copyrighted audio content.
+Harmony, Musify, and their contributors do not host, own, or distribute any copyrighted audio content.
 The app provides access to content through plugins and external sources. All trademarks, songs, audio files, and related content remain the property of their respective owners and are protected by applicable copyright laws.
 Included plugins are provided for interoperability and educational purposes only. Users are solely responsible for ensuring that their use of the app complies with local laws, copyright regulations, and the terms of service of the respective content providers.
-The developers of Musify do not encourage or endorse copyright infringement and assume no liability for misuse of the software or third-party plugins.
+The developers of Harmony and Musify do not encourage or endorse copyright infringement and assume no liability for misuse of the software or third-party plugins.
 ```
 ---

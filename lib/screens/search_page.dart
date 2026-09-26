@@ -36,10 +36,12 @@ import 'package:musify/services/playlists_manager.dart';
 import 'package:musify/services/router_service.dart';
 import 'package:musify/utilities/app_utils.dart';
 import 'package:musify/utilities/flutter_toast.dart';
+import 'package:musify/utilities/harmony_dialogs.dart';
 import 'package:musify/widgets/artist_bar.dart';
 import 'package:musify/widgets/confirmation_dialog.dart';
 import 'package:musify/widgets/custom_bar.dart';
 import 'package:musify/widgets/custom_search_bar.dart';
+import 'package:musify/widgets/harmony_reveal.dart';
 import 'package:musify/widgets/mini_player_bottom_space.dart';
 import 'package:musify/widgets/playlist_bar.dart';
 import 'package:musify/widgets/radio_station_card.dart';
@@ -57,6 +59,10 @@ class SearchPage extends StatefulWidget {
 final ValueNotifier<List> searchHistoryNotifier = ValueNotifier<List>(
   Hive.box('user').get('searchHistory', defaultValue: []),
 );
+
+/// Query handed over by a search entry point outside this page, e.g. the
+/// floating search box of the home header. Consumed and cleared on arrival.
+final ValueNotifier<String?> pendingSearchQuery = ValueNotifier<String?>(null);
 
 void reloadSearchHistoryFromStorage() {
   searchHistoryNotifier.value = Hive.box('user')
@@ -96,12 +102,32 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    pendingSearchQuery.addListener(_consumePendingSearchQuery);
+    // The query can be handed over before this page is first built into the
+    // shell's indexed stack, so one is also picked up on the first frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _consumePendingSearchQuery();
+    });
+  }
+
+  @override
   void dispose() {
+    pendingSearchQuery.removeListener(_consumePendingSearchQuery);
     _searchBar.dispose();
     _inputNode.dispose();
     _fetchingSongs.dispose();
     _debounce?.cancel();
     super.dispose();
+  }
+
+  void _consumePendingSearchQuery() {
+    final query = pendingSearchQuery.value;
+    if (query == null) return;
+    pendingSearchQuery.value = null;
+    if (!mounted) return;
+    unawaited(_submitSearch(query));
   }
 
   Future<void> search() async {
@@ -261,7 +287,23 @@ class _SearchPageState extends State<SearchPage> {
 
   @override
   Widget build(BuildContext context) {
-    final primaryColor = Theme.of(context).colorScheme.primary;
+    final colorScheme = Theme.of(context).colorScheme;
+    final primaryColor = colorScheme.primary;
+    final searchCardSurface = colorScheme.surfaceContainerHighest.withValues(
+      alpha: 0.72,
+    );
+    final searchCardBorder = Border.all(
+      color: colorScheme.primary.withValues(alpha: 0.16),
+      width: 1,
+    );
+    final searchCardShadow = <BoxShadow>[
+      BoxShadow(
+        color: colorScheme.primary.withValues(alpha: 0.10),
+        blurRadius: 14,
+        spreadRadius: 0,
+      ),
+    ];
+    final searchCardRadius = BorderRadius.circular(18);
     return Scaffold(
       appBar: AppBar(title: Text(context.l10n!.search)),
       body: SingleChildScrollView(
@@ -354,40 +396,44 @@ class _SearchPageState extends State<SearchPage> {
                               Builder(
                                 builder: (context) {
                                   final query = items[index];
-                                  final borderRadius = getItemBorderRadius(
-                                    index,
-                                    items.length,
-                                  );
 
-                                  return CustomBar(
-                                    query,
-                                    FluentIcons.search_24_regular,
-                                    borderRadius: borderRadius,
-                                    onTap: () async {
-                                      await _submitSearch(query.toString());
-                                    },
-                                    onLongPress: () async {
-                                      final confirm =
-                                          await _showConfirmationDialog(
-                                            context,
-                                          ) ??
-                                          false;
-                                      if (confirm &&
-                                          searchHistory.contains(query)) {
-                                        final updatedHistory = List.from(
-                                          searchHistory,
-                                        )..remove(query);
-                                        searchHistoryNotifier.value =
-                                            updatedHistory;
-                                        unawaited(
-                                          addOrUpdateData<List>(
-                                            'user',
-                                            'searchHistory',
-                                            updatedHistory,
-                                          ),
-                                        );
-                                      }
-                                    },
+                                  return _withCardGap(
+                                    isLast: index == items.length - 1,
+                                    child: HarmonyReveal(
+                                      child: CustomBar(
+                                        query,
+                                        FluentIcons.search_24_regular,
+                                        borderRadius: searchCardRadius,
+                                        backgroundColor: searchCardSurface,
+                                        border: searchCardBorder,
+                                        boxShadow: searchCardShadow,
+                                        onTap: () async {
+                                          await _submitSearch(query.toString());
+                                        },
+                                        onLongPress: () async {
+                                          final confirm =
+                                              await _showConfirmationDialog(
+                                                context,
+                                              ) ??
+                                              false;
+                                          if (confirm &&
+                                              searchHistory.contains(query)) {
+                                            final updatedHistory = List.from(
+                                              searchHistory,
+                                            )..remove(query);
+                                            searchHistoryNotifier.value =
+                                                updatedHistory;
+                                            unawaited(
+                                              addOrUpdateData<List>(
+                                                'user',
+                                                'searchHistory',
+                                                updatedHistory,
+                                              ),
+                                            );
+                                          }
+                                        },
+                                      ),
+                                    ),
                                   );
                                 },
                               ),
@@ -395,7 +441,14 @@ class _SearchPageState extends State<SearchPage> {
                         );
                       },
                     )
-                  : _buildSearchResults(context, primaryColor),
+                  : _buildSearchResults(
+                      context,
+                      primaryColor,
+                      searchCardSurface,
+                      searchCardBorder,
+                      searchCardShadow,
+                      searchCardRadius,
+                    ),
             ),
             const MiniPlayerBottomSpace(),
           ],
@@ -404,7 +457,21 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  Widget _buildSearchResults(BuildContext context, Color primaryColor) {
+  Widget _withCardGap({required bool isLast, required Widget child}) {
+    return Padding(
+      padding: isLast ? EdgeInsets.zero : const EdgeInsets.only(bottom: 10),
+      child: child,
+    );
+  }
+
+  Widget _buildSearchResults(
+    BuildContext context,
+    Color primaryColor,
+    Color cardSurface,
+    BoxBorder cardBorder,
+    List<BoxShadow> cardShadow,
+    BorderRadius cardRadius,
+  ) {
     final widgets = <Widget>[];
 
     // Artists section
@@ -424,18 +491,25 @@ class _SearchPageState extends State<SearchPage> {
             artist['ytid']?.toString() ?? artist['title']?.toString() ?? '';
         if (artistId.isEmpty) continue;
 
-        final borderRadius = getItemBorderRadius(index, artists.length);
         widgets.add(
-          ArtistBar(
-            key: listItemKey('search_artist', index, artist),
-            artist: artist,
-            borderRadius: borderRadius,
-            onTap: () {
-              context.push(
-                '${NavigationManager.searchPath}/artist/${Uri.encodeComponent(artistId)}',
-                extra: artist,
-              );
-            },
+          _withCardGap(
+            isLast: index == artists.length - 1,
+            child: HarmonyReveal(
+              child: ArtistBar(
+                key: listItemKey('search_artist', index, artist),
+                artist: artist,
+                borderRadius: cardRadius,
+                backgroundColor: cardSurface,
+                border: cardBorder,
+                boxShadow: cardShadow,
+                onTap: () {
+                  context.push(
+                    '${NavigationManager.searchPath}/artist/${Uri.encodeComponent(artistId)}',
+                    extra: artist,
+                  );
+                },
+              ),
+            ),
           ),
         );
       }
@@ -457,14 +531,21 @@ class _SearchPageState extends State<SearchPage> {
 
       for (var index = 0; index < songsCount; index++) {
         final song = _songsSearchResult[index];
-        final borderRadius = getItemBorderRadius(index, songsCount);
         widgets.add(
-          SongBar(
-            song,
-            true,
-            key: listItemKey('search_song', index, song),
-            showMusicDuration: true,
-            borderRadius: borderRadius,
+          _withCardGap(
+            isLast: index == songsCount - 1,
+            child: HarmonyReveal(
+              child: SongBar(
+                song,
+                true,
+                key: listItemKey('search_song', index, song),
+                showMusicDuration: true,
+                borderRadius: cardRadius,
+                backgroundColor: cardSurface,
+                border: cardBorder,
+                boxShadow: cardShadow,
+              ),
+            ),
           ),
         );
       }
@@ -486,17 +567,31 @@ class _SearchPageState extends State<SearchPage> {
 
       for (var index = 0; index < albumsCount; index++) {
         final playlist = _albumsSearchResult[index];
-        final borderRadius = getItemBorderRadius(index, albumsCount);
 
         widgets.add(
-          PlaylistBar(
-            key: listItemKey('search_album', index, playlist),
-            playlist['title'],
-            playlistId: playlist['ytid'],
-            playlistArtwork: playlist['image'],
-            cubeIcon: FluentIcons.cd_16_filled,
-            isAlbum: true,
-            borderRadius: borderRadius,
+          _withCardGap(
+            isLast: index == albumsCount - 1,
+            child: HarmonyReveal(
+              child: PlaylistBar(
+                key: listItemKey('search_album', index, playlist),
+                playlist['title'],
+                playlistId: playlist['ytid'],
+                playlistArtwork: playlist['image'],
+                cubeIcon: FluentIcons.cd_16_filled,
+                isAlbum: true,
+                onPressed: () {
+                  final playlistId = playlist['ytid']?.toString() ?? '';
+                  if (playlistId.isEmpty) return;
+                  context.push(
+                    NavigationManager.albumPath(context, playlistId),
+                  );
+                },
+                borderRadius: cardRadius,
+                backgroundColor: cardSurface,
+                border: cardBorder,
+                boxShadow: cardShadow,
+              ),
+            ),
           ),
         );
       }
@@ -519,18 +614,31 @@ class _SearchPageState extends State<SearchPage> {
       for (var index = 0; index < playlistsCount; index++) {
         final playlist = _playlistsSearchResult[index];
         final isLast = index == playlistsCount - 1;
-        final borderRadius = getItemBorderRadius(index, playlistsCount);
 
         widgets.add(
           Padding(
-            padding: isLast ? commonListViewBottomPadding : EdgeInsets.zero,
-            child: PlaylistBar(
-              key: listItemKey('search_playlist', index, playlist),
-              playlist['title'],
-              playlistId: playlist['ytid'],
-              playlistArtwork: playlist['image'],
-              cubeIcon: FluentIcons.apps_list_24_filled,
-              borderRadius: borderRadius,
+            padding: isLast
+                ? commonListViewBottomPadding
+                : const EdgeInsets.only(bottom: 10),
+            child: HarmonyReveal(
+              child: PlaylistBar(
+                key: listItemKey('search_playlist', index, playlist),
+                playlist['title'],
+                playlistId: playlist['ytid'],
+                playlistArtwork: playlist['image'],
+                cubeIcon: FluentIcons.apps_list_24_filled,
+                onPressed: () {
+                  final playlistId = playlist['ytid']?.toString() ?? '';
+                  if (playlistId.isEmpty) return;
+                  context.push(
+                    '${NavigationManager.searchPath}/playlist/${Uri.encodeComponent(playlistId)}',
+                  );
+                },
+                borderRadius: cardRadius,
+                backgroundColor: cardSurface,
+                border: cardBorder,
+                boxShadow: cardShadow,
+              ),
             ),
           ),
         );
@@ -557,22 +665,30 @@ class _SearchPageState extends State<SearchPage> {
 
         widgets.add(
           Padding(
-            padding: isLast ? commonListViewBottomPadding : EdgeInsets.zero,
-            child: RadioStationCard(
-              key: listItemKey('search_radio_station', index, station),
-              station: station,
-              onPressed: () async {
-                final success = await audioHandler.playRadioStream(
-                  id: station.id,
-                  name: station.name,
-                  streamUrl: station.streamUrl,
-                  image: station.image,
-                  genre: station.genre,
-                );
-                if (!success && context.mounted) {
-                  showToast(context, context.l10n!.failedPlayingRadio);
-                }
-              },
+            padding: isLast
+                ? commonListViewBottomPadding
+                : const EdgeInsets.only(bottom: 10),
+            child: HarmonyReveal(
+              child: RadioStationCard(
+                key: listItemKey('search_radio_station', index, station),
+                station: station,
+                borderRadius: cardRadius,
+                backgroundColor: cardSurface,
+                border: cardBorder,
+                boxShadow: cardShadow,
+                onPressed: () async {
+                  final success = await audioHandler.playRadioStream(
+                    id: station.id,
+                    name: station.name,
+                    streamUrl: station.streamUrl,
+                    image: station.image,
+                    genre: station.genre,
+                  );
+                  if (!success && context.mounted) {
+                    showToast(context, context.l10n!.failedPlayingRadio);
+                  }
+                },
+              ),
             ),
           ),
         );
@@ -588,7 +704,7 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   Future<bool?> _showConfirmationDialog(BuildContext context) {
-    return showDialog<bool>(
+    return showHarmonyDialog<bool>(
       context: context,
       builder: (BuildContext context) {
         return ConfirmationDialog(

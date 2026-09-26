@@ -23,10 +23,11 @@ import 'package:material_ui/material_ui.dart';
 import 'package:musify/extensions/l10n.dart';
 import 'package:musify/services/playlist_download_service.dart';
 import 'package:musify/utilities/flutter_toast.dart';
+import 'package:musify/utilities/harmony_dialogs.dart';
 import 'package:musify/widgets/confirmation_dialog.dart';
 
 void showRemoveOfflinePlaylistDialog(BuildContext context, String playlistId) {
-  showDialog<void>(
+  showHarmonyDialog<void>(
     context: context,
     builder: (BuildContext context) {
       return ConfirmationDialog(

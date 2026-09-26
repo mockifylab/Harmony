@@ -25,12 +25,16 @@ import 'package:musify/constants/app_constants.dart';
 import 'package:musify/extensions/l10n.dart';
 import 'package:musify/services/playlists_manager.dart';
 import 'package:musify/services/settings_manager.dart';
+import 'package:musify/theme/app_themes.dart';
 import 'package:musify/utilities/app_utils.dart';
 import 'package:musify/utilities/flutter_toast.dart';
+import 'package:musify/utilities/harmony_dialogs.dart';
 import 'package:musify/utilities/playlist_utils.dart';
 import 'package:musify/widgets/confirmation_dialog.dart';
 import 'package:musify/widgets/dialog_item.dart';
+import 'package:musify/widgets/harmony_reveal.dart';
 import 'package:musify/widgets/mini_player_bottom_space.dart';
+import 'package:musify/widgets/overflow_menu_button.dart';
 import 'package:musify/widgets/playlist_bar.dart';
 import 'package:musify/widgets/popup_menu_item.dart';
 
@@ -95,41 +99,41 @@ class _PlaylistFolderPageState extends State<PlaylistFolderPage> {
                   background: _buildHeader(context, playlists.length),
                 ),
                 actions: [
-                  PopupMenuButton<String>(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    color: Theme.of(context).colorScheme.surface,
-                    itemBuilder: (context) => [
-                      buildPopupMenuItem<String>(
-                        value: 'add',
-                        icon: FluentIcons.add_24_regular,
-                        label: context.l10n!.addPlaylist,
-                        colorScheme: Theme.of(context).colorScheme,
-                        iconSize: 18,
-                        spacing: 10,
-                      ),
-                      buildPopupMenuItem<String>(
-                        value: 'rename',
-                        icon: FluentIcons.edit_24_regular,
-                        label: context.l10n!.editFolder,
-                        colorScheme: Theme.of(context).colorScheme,
-                        iconSize: 18,
-                        spacing: 10,
-                      ),
-                      buildPopupMenuItem<String>(
-                        value: 'delete',
-                        icon: FluentIcons.delete_24_regular,
-                        label: context.l10n!.deleteFolder,
-                        colorScheme: Theme.of(context).colorScheme,
-                        iconColor: Theme.of(context).colorScheme.error,
-                        labelStyle: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
+                  OverflowMenuButton<String>(
+                    itemBuilder: (context) => buildPopupMenuSections(
+                      Theme.of(context).colorScheme,
+                      [
+                        buildPopupMenuItem<String>(
+                          value: 'add',
+                          icon: FluentIcons.add_24_regular,
+                          label: context.l10n!.addPlaylist,
+                          colorScheme: Theme.of(context).colorScheme,
+                          iconSize: 18,
+                          spacing: 10,
                         ),
-                        iconSize: 18,
-                        spacing: 10,
-                      ),
-                    ],
+                        buildPopupMenuItem<String>(
+                          value: 'rename',
+                          icon: FluentIcons.edit_24_regular,
+                          label: context.l10n!.editFolder,
+                          colorScheme: Theme.of(context).colorScheme,
+                          iconSize: 18,
+                          spacing: 10,
+                        ),
+                        buildPopupMenuItem<String>(
+                          value: 'delete',
+                          icon: FluentIcons.delete_24_regular,
+                          label: context.l10n!.deleteFolder,
+                          colorScheme: Theme.of(context).colorScheme,
+                          iconColor: Theme.of(context).colorScheme.error,
+                          labelStyle: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                          iconSize: 18,
+                          spacing: 10,
+                        ),
+                      ],
+                      startsSection: const {'delete'},
+                    ),
                     onSelected: (value) {
                       if (value == 'add') {
                         _showAddPlaylistDialog();
@@ -151,18 +155,25 @@ class _PlaylistFolderPageState extends State<PlaylistFolderPage> {
                     itemCount: playlists.length,
                     itemBuilder: (context, index) {
                       final playlist = playlists[index];
-                      final borderRadius = getItemBorderRadius(
-                        index,
-                        playlists.length,
-                      );
-                      return PlaylistBar(
+                      final colorScheme = Theme.of(context).colorScheme;
+                      final bar = PlaylistBar(
                         key: listItemKey('folder_playlist', index, playlist),
                         playlist['title'],
                         playlistId: playlist['ytid'],
                         playlistArtwork: playlist['image'],
                         playlistData: playlist,
                         onDelete: () => _showRemovePlaylistDialog(playlist),
-                        borderRadius: borderRadius,
+                        borderRadius: BorderRadius.circular(18),
+                        backgroundColor: getHarmonyCardColor(colorScheme),
+                        border: getHarmonyCardBorder(colorScheme),
+                        boxShadow: getHarmonyCardShadow(colorScheme),
+                      );
+                      if (index == playlists.length - 1) {
+                        return HarmonyReveal(child: bar);
+                      }
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: HarmonyReveal(child: bar),
                       );
                     },
                   ),
@@ -277,7 +288,7 @@ class _PlaylistFolderPageState extends State<PlaylistFolderPage> {
       return;
     }
 
-    await showDialog(
+    await showHarmonyDialog(
       context: context,
       builder: (context) {
         final colorScheme = Theme.of(context).colorScheme;
@@ -337,7 +348,7 @@ class _PlaylistFolderPageState extends State<PlaylistFolderPage> {
   }
 
   void _showRemovePlaylistDialog(Map playlist) {
-    showDialog(
+    showHarmonyDialog(
       context: context,
       builder: (context) => ConfirmationDialog(
         submitMessage: context.l10n!.remove,
@@ -354,7 +365,7 @@ class _PlaylistFolderPageState extends State<PlaylistFolderPage> {
   void _showRenameFolderDialog() {
     var newName = _folderName;
     final colorScheme = Theme.of(context).colorScheme;
-    showDialog(
+    showHarmonyDialog(
       context: context,
       builder: (context) => AlertDialog(
         icon: Icon(
@@ -414,7 +425,7 @@ class _PlaylistFolderPageState extends State<PlaylistFolderPage> {
   }
 
   void _showDeleteFolderDialog() {
-    showDialog(
+    showHarmonyDialog(
       context: context,
       builder: (context) => ConfirmationDialog(
         submitMessage: context.l10n!.delete,

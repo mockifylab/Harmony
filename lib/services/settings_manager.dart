@@ -28,16 +28,12 @@ import 'package:musify/utilities/language_utils.dart';
 
 // Preferences
 
-final shouldWeCheckUpdates = ValueNotifier<bool?>(
-  Hive.box('settings').get('shouldWeCheckUpdates', defaultValue: null),
-);
-
 final playNextSongAutomatically = ValueNotifier<bool>(
   Hive.box('settings').get('playNextSongAutomatically', defaultValue: false),
 );
 
 final useSystemColor = ValueNotifier<bool>(
-  Hive.box('settings').get('useSystemColor', defaultValue: true),
+  Hive.box('settings').get('useSystemColor', defaultValue: false),
 );
 
 final usePureBlackColor = ValueNotifier<bool>(
@@ -47,6 +43,8 @@ final usePureBlackColor = ValueNotifier<bool>(
 final offlineMode = ValueNotifier<bool>(
   Hive.box('settings').get('offlineMode', defaultValue: false),
 );
+
+final settingsDrawerOpen = ValueNotifier<bool>(false);
 
 final wrappedEnabled = ValueNotifier<bool>(
   Hive.box('settings').get('wrappedEnabled', defaultValue: true),
@@ -103,7 +101,7 @@ String offlineSortSetting = Hive.box('settings')
     .get('offlineSortType', defaultValue: OfflineSortType.default_.name);
 
 Color primaryColorSetting = Color(
-  Hive.box('settings').get('accentColor', defaultValue: 0xff91cef4),
+  Hive.box('settings').get('accentColor', defaultValue: 0xff1db954),
 );
 
 final shuffleNotifier = ValueNotifier<bool>(
@@ -126,15 +124,11 @@ final announcementURL = ValueNotifier<String?>(null);
 void reloadSettingsFromStorage() {
   final settings = Hive.box('settings');
 
-  shouldWeCheckUpdates.value = settings.get(
-    'shouldWeCheckUpdates',
-    defaultValue: null,
-  );
   playNextSongAutomatically.value = settings.get(
     'playNextSongAutomatically',
     defaultValue: false,
   );
-  useSystemColor.value = settings.get('useSystemColor', defaultValue: true);
+  useSystemColor.value = settings.get('useSystemColor', defaultValue: false);
   usePureBlackColor.value = settings.get(
     'usePureBlackColor',
     defaultValue: false,
@@ -190,7 +184,7 @@ void reloadSettingsFromStorage() {
 
   final restoredAccentColor = settings.get(
     'accentColor',
-    defaultValue: 0xff91cef4,
+    defaultValue: 0xff1db954,
   );
   if (restoredAccentColor is int) {
     primaryColorSetting = Color(restoredAccentColor);

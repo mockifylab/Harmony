@@ -16,17 +16,20 @@
  */
 
 import 'package:material_ui/material_ui.dart';
+import 'package:musify/widgets/verified_artist_badge.dart';
 
 class PlaylistSliverAppBar extends StatelessWidget {
   const PlaylistSliverAppBar({
     super.key,
     required this.title,
     required this.artwork,
+    this.verified = false,
     this.leading,
   });
 
   final String title;
   final Widget artwork;
+  final bool verified;
   final Widget? leading;
 
   @override
@@ -45,15 +48,26 @@ class PlaylistSliverAppBar extends StatelessWidget {
           end: 64,
           bottom: 16,
         ),
-        title: Text(
-          title,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: Theme.of(context).colorScheme.onSurface,
-            letterSpacing: 0,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                title,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: Theme.of(context).colorScheme.onSurface,
+                  letterSpacing: 0,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (verified) ...[
+              const SizedBox(width: 5),
+              const VerifiedArtistBadge(size: 18),
+            ],
+          ],
         ),
         background: Padding(
           padding: const EdgeInsets.only(top: 56, bottom: 64),

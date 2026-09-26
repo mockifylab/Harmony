@@ -105,6 +105,25 @@ class PlaylistUtils {
     return list.indexWhere((s) => s is Map && s['ytid'] == songYtid);
   }
 
+  /// Artwork to display for a playlist: its own image when set, otherwise the
+  /// first song's real thumbnail (e.g. Spotify imports never capture a cover).
+  /// Returns null when no real artwork exists, so callers can fall back to an
+  /// icon.
+  static String? resolvePlaylistArtwork(dynamic playlist) {
+    if (playlist is! Map) return null;
+    final image = playlist['image']?.toString();
+    if (image != null && image.isNotEmpty) return image;
+    final list = playlist['list'];
+    if (list is List && list.isNotEmpty) {
+      final firstSong = list.first;
+      if (firstSong is Map) {
+        final songImage = firstSong['image']?.toString();
+        if (songImage != null && songImage.isNotEmpty) return songImage;
+      }
+    }
+    return null;
+  }
+
   /// Check if a playlist already exists by title and song ytids.
   static bool playlistExists(
     Map<String, dynamic> playlist,

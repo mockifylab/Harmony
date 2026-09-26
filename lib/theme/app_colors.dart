@@ -21,25 +21,17 @@
 
 import 'package:material_ui/material_ui.dart';
 
-const availableColors = <Color>[
-  Color(0xFF009688), // Material Teal
-  Color(0xFF2196F3), // Material Blue
-  Color(0xFFBA68C8), // Material Purple Light
-  Color(0xFF00BCD4), // Material Cyan
-  Color(0xFF00FA9A), // Medium Spring Green
-  Color(0xFF4CAF50), // Green
-  Color(0xFF9ACD32), // Yellow Green
-  Color(0xFFCDDC39), // Lime
-  Color(0xFFF08080), // Light Coral
-  Color(0xFFE9967A), // Dark Salmon
-  Color(0xFFFFC0CB), // Pink
-  Color(0xFF6495ED), // Cornflower Blue
-  Color(0xFFA6C8FF), // Lighter Cornflower Blue
-  Color(0xFFFF9800), // Orange
-  Color(0xFFF8C733), // Cadmium Yellow
-  Color(0xFFBDB76B), // Dark Khaki
-  Color(0xFFC4A092), // Material Brown
-  Color(0xFFE2C09F), // Pale Peach
-  Color(0xff91cef4), // Material Skycolor
-  Color(0xFFAABBCC), // Light Steel Blue
-];
+/// Spotify-inspired presentation tokens. Playback, downloads, and data
+/// layers do not depend on these values.
+abstract final class SpotifyColors {
+  static const background = Color(0xFF121212);
+  static const card = Color(0xFF181818);
+  static const elevated = Color(0xFF282828);
+  static const green = Color(0xFF1DB954);
+
+  /// Darker sibling of [green] used for accents and text on light (cream)
+  /// surfaces, where [green] itself lacks contrast.
+  static const deepGreen = Color(0xFF127A42);
+  static const muted = Color(0xFFB3B3B3);
+  static const white = Color(0xFFFFFFFF);
+}

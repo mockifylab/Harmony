@@ -83,7 +83,7 @@ jobs:
           repo_name: gokadzev/Musify
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: build/app/outputs/flutter-apk/app-arm64-v8a-github-release.apk
-          asset_name: Musify-arm64-v8a.apk
+          asset_name: Harmony-arm64-v8a.apk
           tag: ${{ steps.extract_version.outputs.version }}
           prerelease: false
           overwrite: true
@@ -99,7 +99,7 @@ jobs:
           repo_name: gokadzev/Musify
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: build/app/outputs/flutter-apk/app-github-release.apk
-          asset_name: Musify.apk
+          asset_name: Harmony.apk
           tag: ${{ steps.extract_version.outputs.version }}
           prerelease: false
           overwrite: true

@@ -59,7 +59,7 @@ class NowPlayingArtwork extends StatelessWidget {
         ? screenWidth * 0.80
         : screenWidth * 0.65;
 
-    const borderRadius = 24.0;
+    const borderRadius = 16.0;
 
     return FlipCard(
       rotateSide: RotateSide.right,

@@ -149,20 +149,36 @@ class MusifyAudioHandler extends BaseAudioHandler {
 
   Stream<PlaybackState> get playbackStateStream => _playbackStateStream;
 
+  bool _isCurrentSongLiked() {
+    final currentYtid = currentSong?['ytid']?.toString();
+    if (currentYtid == null || currentYtid.isEmpty) return false;
+    return userLikedSongsList.value.any(
+      (likedSong) => likedSong['ytid']?.toString() == currentYtid,
+    );
+  }
+
   List<MediaControl> _controls(bool playing) {
-    final hasMultipleTracks = _queueList.length > 1;
+    final isShuffleEnabled = shuffleNotifier.value;
+    final isLiked = _isCurrentSongLiked();
 
     return [
-      if (hasMultipleTracks)
-        MediaControl.skipToPrevious
-      else
-        MediaControl.rewind,
+      MediaControl.custom(
+        androidIcon: isShuffleEnabled
+            ? 'drawable/audio_service_shuffle_active'
+            : 'drawable/audio_service_shuffle',
+        label: isShuffleEnabled ? 'Disable shuffle' : 'Enable shuffle',
+        name: 'shuffle',
+      ),
+      MediaControl.skipToPrevious,
       if (playing) MediaControl.pause else MediaControl.play,
-      MediaControl.stop,
-      if (hasMultipleTracks)
-        MediaControl.skipToNext
-      else
-        MediaControl.fastForward,
+      MediaControl.skipToNext,
+      MediaControl.custom(
+        androidIcon: isLiked
+            ? 'drawable/audio_service_liked'
+            : 'drawable/audio_service_add',
+        label: isLiked ? 'Remove from Liked Songs' : 'Add to Liked Songs',
+        name: 'like',
+      ),
     ];
   }
 
@@ -178,7 +194,14 @@ class MusifyAudioHandler extends BaseAudioHandler {
     logger.log(message, error: error, stackTrace: stackTrace);
   }
 
+  void _handleControlStateChanged() {
+    _updatePlaybackState(force: true);
+  }
+
   void _setupEventSubscriptions() {
+    shuffleNotifier.addListener(_handleControlStateChanged);
+    userLikedSongsList.addListener(_handleControlStateChanged);
+
     audioPlayer.playbackEventStream
         .throttleTime(const Duration(milliseconds: 100))
         .listen(
@@ -539,7 +562,9 @@ class MusifyAudioHandler extends BaseAudioHandler {
   }
 
   Future<AndroidEqualizerParameters?> getEqualizerParameters() async {
-    final initialized = await _ensureEqualizerConfigured();
+    // Force: the equalizer page must work before the first song plays too,
+    // when audioPlayer.audioSource is still null.
+    final initialized = await _ensureEqualizerConfigured(force: true);
     if (!initialized) return null;
     try {
       return await _androidEqualizer.parameters.timeout(
@@ -687,7 +712,7 @@ class MusifyAudioHandler extends BaseAudioHandler {
               MediaAction.seekForward,
               MediaAction.seekBackward,
             },
-            androidCompactActionIndices: const [0, 1, 3],
+            androidCompactActionIndices: const [1, 2, 3],
             processingState: newProcessingState,
             playing: isPlaying,
             updatePosition: currentPosition,
@@ -1275,18 +1300,13 @@ class MusifyAudioHandler extends BaseAudioHandler {
 
       playbackState.add(
         PlaybackState(
-          controls: [
-            MediaControl.skipToPrevious,
-            MediaControl.pause,
-            MediaControl.stop,
-            MediaControl.skipToNext,
-          ],
+          controls: _controls(false),
           systemActions: const {
             MediaAction.seek,
             MediaAction.seekForward,
             MediaAction.seekBackward,
           },
-          androidCompactActionIndices: const [0, 1, 3],
+          androidCompactActionIndices: const [1, 2, 3],
           processingState: AudioProcessingState.loading,
           queueIndex:
               queueIndex ??
@@ -1568,6 +1588,25 @@ class MusifyAudioHandler extends BaseAudioHandler {
         _firstPlayableSong(userLikedSongsList.value);
   }
 
+  /// Puts the song that was playing when the app last closed back into the
+  /// mini player without starting playback. The persisted play history is the
+  /// only source, so nothing is invented, and the playback state is left
+  /// untouched (idle, not playing) - pressing play then resumes the song
+  /// through the ordinary resumption path.
+  void restoreLastPlayedSong() {
+    if (mediaItem.valueOrNull != null || audioPlayer.audioSource != null) {
+      return;
+    }
+
+    for (final song in userRecentlyPlayed.value.whereType<Map>()) {
+      final normalisedSong = _normaliseResumableSong(song);
+      if (normalisedSong == null) continue;
+      if ((normalisedSong['title']?.toString().trim() ?? '').isEmpty) continue;
+      mediaItem.add(mapToMediaItem(normalisedSong));
+      return;
+    }
+  }
+
   Map<String, dynamic>? _normaliseResumableSong(Map song) {
     final ytid = _songYtid(song);
     if (ytid == null) return null;
@@ -1591,7 +1630,7 @@ class MusifyAudioHandler extends BaseAudioHandler {
     return mapToMediaItem(normalisedSong).copyWith(
       id: _recentMediaId(ytid),
       displayTitle: normalisedSong['title']?.toString(),
-      displaySubtitle: artist.isEmpty ? 'Musify' : artist,
+      displaySubtitle: artist.isEmpty ? 'Harmony' : artist,
     );
   }
 
@@ -1601,7 +1640,7 @@ class MusifyAudioHandler extends BaseAudioHandler {
 
     await playPlaylistSong(
       playlist: {
-        'title': 'Musify',
+        'title': 'Harmony',
         'source': 'system-recent',
         'list': [normalisedSong],
       },
@@ -1691,7 +1730,7 @@ class MusifyAudioHandler extends BaseAudioHandler {
       id: _songMediaId(containerId, token),
       playable: true,
       displayTitle: normalised['title']?.toString(),
-      displaySubtitle: artist.isEmpty ? 'Musify' : artist,
+      displaySubtitle: artist.isEmpty ? 'Harmony' : artist,
     );
   }
 
@@ -2046,7 +2085,7 @@ class MusifyAudioHandler extends BaseAudioHandler {
           MediaAction.seekForward,
           MediaAction.seekBackward,
         },
-        androidCompactActionIndices: const [0, 1, 3],
+        androidCompactActionIndices: const [1, 2, 3],
         processingState: AudioProcessingState.ready,
         queueIndex: 0,
         updateTime: DateTime.now(),
@@ -2460,6 +2499,10 @@ class MusifyAudioHandler extends BaseAudioHandler {
         unawaited(audioPlayer.stop());
         return false;
       }
+
+      // A source now exists, so the startup init that was skipped while
+      // audioSource was null can restore the saved equalizer band gains.
+      unawaited(_ensureEqualizerConfigured());
 
       final resolvedDuration = loadedDuration ?? audioPlayer.duration;
       if (resolvedDuration != null && _playerSourceMatchesCurrentSong()) {
@@ -3077,6 +3120,34 @@ class MusifyAudioHandler extends BaseAudioHandler {
               extras!['oldIndex'] as int,
               extras['newIndex'] as int,
             );
+          }
+          break;
+        case 'skipToPrevious':
+          await skipToPrevious();
+          break;
+        case 'skipToNext':
+          await skipToNext();
+          break;
+        case 'shuffle':
+          await setShuffleMode(
+            shuffleNotifier.value
+                ? AudioServiceShuffleMode.none
+                : AudioServiceShuffleMode.all,
+          );
+          _updatePlaybackState(force: true);
+          break;
+        case 'like':
+          final song = currentSong;
+          final ytid = song?['ytid']?.toString();
+
+          if (ytid != null && ytid.isNotEmpty) {
+            final isLiked = userLikedSongsList.value.any(
+              (likedSong) => likedSong['ytid']?.toString() == ytid,
+            );
+
+            await updateSongLikeStatus(ytid, !isLiked, songData: song);
+
+            _updatePlaybackState(force: true);
           }
           break;
         default:

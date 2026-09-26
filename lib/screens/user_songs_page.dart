@@ -27,11 +27,14 @@ import 'package:musify/main.dart' show logger, audioHandler;
 import 'package:musify/services/common_services.dart';
 import 'package:musify/services/data_manager.dart';
 import 'package:musify/services/settings_manager.dart';
+import 'package:musify/theme/app_themes.dart';
 import 'package:musify/utilities/app_utils.dart';
 import 'package:musify/utilities/flutter_toast.dart';
+import 'package:musify/utilities/harmony_dialogs.dart';
 import 'package:musify/utilities/playlist_utils.dart';
 import 'package:musify/utilities/song_filtering.dart';
 import 'package:musify/widgets/confirmation_dialog.dart';
+import 'package:musify/widgets/harmony_reveal.dart';
 import 'package:musify/widgets/mini_player_bottom_space.dart';
 import 'package:musify/widgets/playlist_hero_artwork.dart';
 import 'package:musify/widgets/playlist_page/empty_playlist_state.dart';
@@ -123,7 +126,11 @@ class _UserSongsPageState extends State<UserSongsPage> {
       slivers: [
         PlaylistSliverAppBar(
           title: title,
-          artwork: PlaylistHeroArtwork({'title': title}, cubeIcon: icon),
+          artwork: PlaylistHeroArtwork(
+            {'title': title},
+            cubeIcon: icon,
+            styled: true,
+          ),
         ),
         SliverToBoxAdapter(
           child: _buildHeaderSection(title, icon, songsLength, isOfflineSongs),
@@ -246,7 +253,7 @@ class _UserSongsPageState extends State<UserSongsPage> {
             const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: [_buildClearRecentsButton(colorScheme.primary)],
+              children: [_buildClearRecentsButton()],
             ),
           ],
         ],
@@ -282,12 +289,13 @@ class _UserSongsPageState extends State<UserSongsPage> {
     );
   }
 
-  Widget _buildClearRecentsButton(Color primaryColor) {
-    return IconButton.filledTonal(
-      icon: Icon(FluentIcons.delete_24_regular, color: primaryColor),
+  Widget _buildClearRecentsButton() {
+    return IconButton(
+      icon: const Icon(FluentIcons.delete_24_regular),
       iconSize: 24,
+      style: getHarmonyCircleActionStyle(Theme.of(context).colorScheme),
       onPressed: () {
-        showDialog(
+        showHarmonyDialog(
           context: context,
           builder: (BuildContext context) {
             return ConfirmationDialog(
@@ -354,16 +362,20 @@ class _UserSongsPageState extends State<UserSongsPage> {
               : null,
           delegate: SliverChildBuilderDelegate((context, index) {
             final song = displayList[index];
-            final borderRadius = getItemBorderRadius(index, displayList.length);
+            final bar = _buildSongBar(
+              song,
+              index,
+              playlist,
+              isRecentSong: isRecentlyPlayed,
+            );
             return RepaintBoundary(
               key: listItemKey(listKeyScope, index, song),
-              child: _buildSongBar(
-                song,
-                index,
-                borderRadius,
-                playlist,
-                isRecentSong: isRecentlyPlayed,
-              ),
+              child: index == displayList.length - 1
+                  ? HarmonyReveal(child: bar)
+                  : Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: HarmonyReveal(child: bar),
+                    ),
             );
           }, childCount: displayList.length),
         );
@@ -374,11 +386,11 @@ class _UserSongsPageState extends State<UserSongsPage> {
   Widget _buildSongBar(
     Map song,
     int index,
-    BorderRadius borderRadius,
     Map playlist, {
     bool isRecentSong = false,
   }) {
     final isLikedSongs = playlist['title'] == context.l10n!.likedSongs;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return SongBar(
       key: listItemKey('user_song', index, song),
@@ -399,7 +411,10 @@ class _UserSongsPageState extends State<UserSongsPage> {
           songIndex: fullIndex != -1 ? fullIndex : index,
         );
       },
-      borderRadius: borderRadius,
+      backgroundColor: getHarmonyCardColor(colorScheme),
+      border: getHarmonyCardBorder(colorScheme),
+      boxShadow: getHarmonyCardShadow(colorScheme),
+      borderRadius: BorderRadius.circular(18),
       isRecentSong: isRecentSong,
       isFromLikedSongs: isLikedSongs,
     );

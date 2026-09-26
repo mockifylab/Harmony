@@ -219,10 +219,24 @@ class _EqualizerPageState extends State<EqualizerPage> {
           ? Center(
               child: Padding(
                 padding: commonSingleChildScrollViewPadding,
-                child: Text(
-                  context.l10n!.equalizerInitFailed,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                  textAlign: TextAlign.center,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      context.l10n!.equalizerInitFailed,
+                      style: Theme.of(context).textTheme.bodyLarge,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.tonalIcon(
+                      onPressed: () {
+                        setState(() => _isLoading = true);
+                        _loadEqualizer();
+                      },
+                      icon: const Icon(FluentIcons.arrow_clockwise_24_regular),
+                      label: Text(context.l10n!.retry),
+                    ),
+                  ],
                 ),
               ),
             )
@@ -263,7 +277,9 @@ class _EqualizerPageState extends State<EqualizerPage> {
                           onChanged: (value) async {
                             await audioHandler.setEqualizerEnabled(value);
                             if (!mounted) return;
-                            setState(() => _enabled = value);
+                            setState(
+                              () => _enabled = equalizerEnabled.value,
+                            );
                           },
                         ),
                       ],

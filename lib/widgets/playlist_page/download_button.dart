@@ -27,6 +27,7 @@ import 'package:musify/services/playlist_download_service.dart';
 import 'package:musify/services/settings_manager.dart';
 import 'package:musify/utilities/flutter_toast.dart';
 import 'package:musify/utilities/offline_playlist_dialogs.dart';
+import 'package:musify/widgets/download_button.dart';
 
 /// Downloads a playlist for offline playback, showing the download progress
 /// and turning into a "remove offline" button once every song is stored.
@@ -98,12 +99,15 @@ class _PlaylistDownloadButtonState extends State<PlaylistDownloadButton> {
         valueListenable: offlinePlaylistService.offlinePlaylists,
         builder: (context, __, ___) {
           if (_isOffline) {
-            return IconButton.filled(
-              icon: Icon(
-                FluentIcons.arrow_download_off_24_filled,
-                color: Theme.of(context).colorScheme.onPrimary,
+            final colorScheme = Theme.of(context).colorScheme;
+            return DownloadIconButton(
+              state: DownloadButtonState.completed,
+              completedIcon: FluentIcons.arrow_download_off_24_filled,
+              completedColor: colorScheme.onPrimary,
+              completedStyle: IconButton.styleFrom(
+                backgroundColor: colorScheme.primary,
+                foregroundColor: colorScheme.onPrimary,
               ),
-              iconSize: 24,
               onPressed: () =>
                   showRemoveOfflinePlaylistDialog(context, playlistId),
               tooltip: context.l10n!.removeOffline,
@@ -116,62 +120,44 @@ class _PlaylistDownloadButtonState extends State<PlaylistDownloadButton> {
             ),
             builder: (context, progress, _) {
               if (offlinePlaylistService.isPlaylistDownloading(playlistId)) {
-                return _buildProgress(context, progress);
+                return DownloadIconButton(
+                  state: DownloadButtonState.downloading,
+                  progress: progress.isCancelled ? null : progress.progress,
+                  onPressed: progress.isCancelled
+                      ? null
+                      : () => offlinePlaylistService.cancelDownload(
+                          context,
+                          playlistId,
+                        ),
+                  showCancelGlyph: !progress.isCancelled,
+                  tooltip: context.l10n!.cancel,
+                );
               }
 
               if (offlineMode.value) return const SizedBox.shrink();
 
               if (_isResolving) {
-                return const SizedBox(
-                  width: 48,
-                  height: 48,
-                  child: Center(
-                    child: SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(strokeWidth: 3),
-                    ),
-                  ),
+                return const DownloadIconButton(
+                  state: DownloadButtonState.downloading,
+                  showCancelGlyph: false,
                 );
               }
 
-              return IconButton.filledTonal(
-                icon: const Icon(FluentIcons.arrow_download_24_filled),
-                iconSize: 24,
+              return DownloadIconButton(
+                state: DownloadButtonState.idle,
+                idleIcon: FluentIcons.arrow_download_24_filled,
+                style: IconButton.styleFrom(
+                  backgroundColor:
+                      Theme.of(context).colorScheme.secondaryContainer,
+                  foregroundColor:
+                      Theme.of(context).colorScheme.onSecondaryContainer,
+                ),
                 onPressed: () => _download(context),
                 tooltip: context.l10n!.downloadPlaylist,
               );
             },
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildProgress(BuildContext context, DownloadProgress progress) {
-    return SizedBox(
-      width: 48,
-      height: 48,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          SizedBox(
-            width: 40,
-            height: 40,
-            child: CircularProgressIndicator(
-              value: progress.isCancelled ? null : progress.progress,
-              strokeWidth: 3,
-              backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-            ),
-          ),
-          if (!progress.isCancelled)
-            IconButton(
-              icon: const Icon(FluentIcons.dismiss_24_filled, size: 16),
-              onPressed: () =>
-                  offlinePlaylistService.cancelDownload(context, playlistId),
-              tooltip: context.l10n!.cancel,
-            ),
-        ],
       ),
     );
   }

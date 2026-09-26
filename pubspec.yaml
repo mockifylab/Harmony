@@ -1,11 +1,11 @@
 name: musify
-description: Music Streaming app made in Flutter!
+description: Harmony is an open-source visual redesign of Musify, made in Flutter.
 homepage: https://github.com/gokadzev/Musify
 repository: https://github.com/gokadzev/Musify
 issue_tracker: https://github.com/gokadzev/Musify/issues
 
 publish_to: 'none'
-version: 10.4.0+181 # run update.sh after changing the version
+version: 1.0.0+181 # run update.sh after changing the version
 
 environment:
   sdk: '>=3.13.0 <4.0.0'
@@ -13,7 +13,8 @@ environment:
 
 dependencies:
   app_links: ^7.2.1
-  audio_service: ^0.18.19
+  audio_service:
+    path: ./packages/audio_service
   audio_session: ^0.2.4
   cached_network_image: ^4.0.0
   dynamic_color: ^2.1.0
@@ -54,9 +55,11 @@ flutter:
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/licenses/
-    - assets/icons/musify_icon.png
+    - assets/icons/harmony_fox_foreground.png
 
   fonts:
     - family: paytoneOne
       fonts:
         - asset: assets/fonts/paytone/PaytoneOne-Regular.ttf
+
+

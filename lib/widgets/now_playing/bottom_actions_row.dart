@@ -27,10 +27,14 @@ import 'package:musify/main.dart';
 import 'package:musify/services/common_services.dart';
 import 'package:musify/services/playlist_download_service.dart';
 import 'package:musify/services/settings_manager.dart';
+import 'package:musify/theme/app_themes.dart';
 import 'package:musify/utilities/flutter_bottom_sheet.dart';
 import 'package:musify/utilities/flutter_toast.dart';
+import 'package:musify/utilities/harmony_dialogs.dart';
 import 'package:musify/utilities/mediaitem.dart';
 import 'package:musify/utilities/playlist_dialogs.dart';
+import 'package:musify/widgets/download_button.dart';
+import 'package:musify/widgets/now_playing/now_playing_controls.dart';
 import 'package:musify/widgets/queue_list_view.dart';
 
 class BottomActionsRow extends StatefulWidget {
@@ -51,72 +55,9 @@ class BottomActionsRow extends StatefulWidget {
 }
 
 class _BottomActionsRowState extends State<BottomActionsRow> {
-  late final ValueNotifier<bool> _songLikeStatus;
-  late final ValueNotifier<bool> _songOfflineStatus;
   late final String? audioId = widget.metadata.extras?['ytid'];
   late final bool isRadioStation = widget.metadata.extras?['isLive'] ?? false;
 
-  @override
-  void initState() {
-    super.initState();
-    if (isRadioStation) {
-      _songLikeStatus = ValueNotifier<bool>(isRadioStationLiked(audioId ?? ''));
-      userLikedRadioStations.addListener(_syncRadioLikeStatus);
-    } else {
-      _songLikeStatus = ValueNotifier<bool>(isSongAlreadyLiked(audioId));
-      userLikedSongsList.addListener(_syncLikeStatus);
-    }
-    _songOfflineStatus = ValueNotifier<bool>(isSongAlreadyOffline(audioId));
-    userOfflineSongs.addListener(_syncOfflineStatus);
-  }
-
-  void _syncLikeStatus() {
-    final newStatus = isSongAlreadyLiked(audioId);
-    if (_songLikeStatus.value != newStatus) {
-      _songLikeStatus.value = newStatus;
-    }
-  }
-
-  void _syncRadioLikeStatus() {
-    final newStatus = isRadioStationLiked(audioId ?? '');
-    if (_songLikeStatus.value != newStatus) {
-      _songLikeStatus.value = newStatus;
-    }
-  }
-
-  void _syncOfflineStatus() {
-    final newStatus = isSongAlreadyOffline(audioId);
-    if (_songOfflineStatus.value != newStatus) {
-      _songOfflineStatus.value = newStatus;
-    }
-  }
-
-  @override
-  void didUpdateWidget(BottomActionsRow oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    final oldAudioId = oldWidget.metadata.extras?['ytid'];
-    if (oldAudioId != audioId) {
-      if (isRadioStation) {
-        _songLikeStatus.value = isRadioStationLiked(audioId ?? '');
-      } else {
-        _songLikeStatus.value = isSongAlreadyLiked(audioId);
-      }
-      _songOfflineStatus.value = isSongAlreadyOffline(audioId);
-    }
-  }
-
-  @override
-  void dispose() {
-    if (isRadioStation) {
-      userLikedRadioStations.removeListener(_syncRadioLikeStatus);
-    } else {
-      userLikedSongsList.removeListener(_syncLikeStatus);
-    }
-    userOfflineSongs.removeListener(_syncOfflineStatus);
-    _songLikeStatus.dispose();
-    _songOfflineStatus.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -135,23 +76,45 @@ class _BottomActionsRowState extends State<BottomActionsRow> {
 
         final actions = <Widget>[
           if (!isRadioStation)
-            _buildActionButton(
-              context: context,
-              icon: FluentIcons.cloud_arrow_down_24_regular,
-              activeIcon: FluentIcons.cloud_off_24_filled,
-              colorScheme: colorScheme,
-              size: responsiveIconSize,
-              statusNotifier: _songOfflineStatus,
-              onPressed: audioId == null
-                  ? null
-                  : () => _toggleOffline(
-                      _songOfflineStatus,
-                      audioId,
-                      widget.metadata,
-                    ),
-              tooltip: l10n.makeOffline,
+            ValueListenableBuilder<List>(
+              valueListenable: userOfflineSongs,
+              builder: (_, __, ___) => ValueListenableBuilder<Set<String>>(
+                valueListenable: activeSongDownloads,
+                builder: (context, activeDownloads, _) {
+                  final isDownloading =
+                      audioId != null && activeDownloads.contains(audioId);
+                  final isOffline = isSongAlreadyOffline(audioId);
+
+                  return DownloadIconButton(
+                    size: responsiveIconSize,
+                    state: isDownloading
+                        ? DownloadButtonState.downloading
+                        : isOffline
+                        ? DownloadButtonState.completed
+                        : DownloadButtonState.idle,
+                    completedColor: colorScheme.primary,
+                    tooltip: l10n.makeOffline,
+                    onPressed: audioId == null || isDownloading
+                        ? null
+                        : () async {
+                            final id = audioId;
+                            if (id == null) return;
+                            if (isSongAlreadyOffline(id)) {
+                              await OfflinePlaylistService()
+                                  .removeSongFromOfflineAndResync(id);
+                            } else {
+                              await makeSongOffline(
+                                mediaItemToMap(widget.metadata),
+                              );
+                            }
+                          },
+                  );
+                },
+              ),
             ),
           _buildSleepTimerButton(context, colorScheme, responsiveIconSize),
+          if (queue.isNotEmpty)
+            Center(child: NowPlayingRepeatButton(iconSize: responsiveIconSize)),
           if (!offlineMode.value && !isRadioStation)
             _buildSimpleActionButton(
               context: context,
@@ -176,103 +139,29 @@ class _BottomActionsRowState extends State<BottomActionsRow> {
               ),
               tooltip: l10n.queue,
             ),
-          if (!offlineMode.value) ...[
-            if (!isRadioStation)
-              _buildSimpleActionButton(
-                context: context,
-                icon: FluentIcons.text_quote_24_regular,
-                colorScheme: colorScheme,
-                size: responsiveIconSize,
-                onPressed: widget.lyricsController.flipcard,
-                tooltip: l10n.lyrics,
-              ),
-            _buildActionButton(
+          if (!offlineMode.value && !isRadioStation)
+            _buildSimpleActionButton(
               context: context,
-              icon: FluentIcons.heart_24_regular,
-              activeIcon: FluentIcons.heart_24_filled,
+              icon: FluentIcons.text_quote_24_regular,
               colorScheme: colorScheme,
               size: responsiveIconSize,
-              statusNotifier: _songLikeStatus,
-              activeColor: colorScheme.primary,
-              onPressed: () async {
-                final id = audioId;
-                if (id == null) return;
-
-                final originalValue = _songLikeStatus.value;
-                _songLikeStatus.value = !originalValue;
-
-                try {
-                  if (isRadioStation) {
-                    if (originalValue) {
-                      await removeRadioStationFromLiked(id);
-                    } else {
-                      await addRadioStationToLiked(id);
-                    }
-                  } else {
-                    await updateSongLikeStatus(
-                      audioId,
-                      !originalValue,
-                      songData: mediaItemToMap(widget.metadata),
-                    );
-                  }
-                } catch (e) {
-                  _songLikeStatus.value = originalValue; // revert on failure
-                  logger.log('Error toggling like status', error: e);
-                }
-              },
-              tooltip: l10n.likedSongs,
+              onPressed: widget.lyricsController.flipcard,
+              tooltip: l10n.lyrics,
             ),
-          ],
         ];
 
         return Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: colorScheme.surfaceContainerHigh,
+            color: getHarmonyCardColor(colorScheme),
             borderRadius: BorderRadius.circular(20),
+            border: getHarmonyCardBorder(colorScheme),
+            boxShadow: getHarmonyCardShadow(colorScheme),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: actions,
           ),
-        );
-      },
-    );
-  }
-
-  Widget _buildActionButton({
-    required BuildContext context,
-    required IconData icon,
-    required IconData activeIcon,
-    required ColorScheme colorScheme,
-    required double size,
-    required ValueNotifier<bool> statusNotifier,
-    required VoidCallback? onPressed,
-    Color? activeColor,
-    String? tooltip,
-  }) {
-    return ValueListenableBuilder<bool>(
-      valueListenable: statusNotifier,
-      builder: (_, isActive, __) {
-        return IconButton(
-          icon: Icon(
-            isActive ? activeIcon : icon,
-            color: isActive
-                ? (activeColor ?? colorScheme.primary)
-                : colorScheme.onSurfaceVariant,
-          ),
-          iconSize: size,
-          tooltip: tooltip,
-          style: IconButton.styleFrom(
-            backgroundColor: isActive
-                ? (activeColor ?? colorScheme.primary).withValues(alpha: 0.15)
-                : Colors.transparent,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-          onPressed: onPressed,
         );
       },
     );
@@ -346,38 +235,10 @@ class _BottomActionsRowState extends State<BottomActionsRow> {
   }
 }
 
-Future<void> _toggleOffline(
-  ValueNotifier<bool> status,
-  String? audioId,
-  MediaItem metadata,
-) async {
-  final originalValue = status.value;
-  status.value = !originalValue;
-
-  try {
-    final bool success;
-    if (originalValue) {
-      success =
-          !(audioId == null) &&
-          await OfflinePlaylistService().removeSongFromOfflineAndResync(
-            audioId,
-          );
-    } else {
-      success = await makeSongOffline(mediaItemToMap(metadata));
-    }
-    if (!success) {
-      status.value = originalValue;
-    }
-  } catch (e) {
-    status.value = originalValue;
-    logger.log('Error toggling offline status', error: e);
-  }
-}
-
 void _showSleepTimerDialog(BuildContext context) {
   final colorScheme = Theme.of(context).colorScheme;
 
-  showDialog(
+  showHarmonyDialog(
     context: context,
     builder: (context) {
       final duration = sleepTimerNotifier.value ?? Duration.zero;

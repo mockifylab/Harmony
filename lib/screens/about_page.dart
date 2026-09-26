@@ -44,7 +44,7 @@ class AboutPage extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Musify',
+                    'Harmony',
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.primary,
                       fontSize: 36,
@@ -114,7 +114,7 @@ class AboutPage extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Valeri Gokadze',
+                            'Valeri Gokadze / gokadzev',
                             style: TextStyle(
                               color: Theme.of(context).colorScheme.onSurface,
                               fontWeight: FontWeight.w600,
@@ -123,7 +123,7 @@ class AboutPage extends StatelessWidget {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            'WEB & APP Developer',
+                            'Creator of the original Musify project',
                             style: TextStyle(
                               color: Theme.of(context)
                                   .colorScheme
@@ -143,7 +143,9 @@ class AboutPage extends StatelessWidget {
                           icon: FluentIcons.code_24_filled,
                           tooltip: 'Github',
                           onPressed: () {
-                            launchURL(Uri.parse('https://github.com/gokadzev'));
+                            launchURL(
+                              Uri.parse('https://github.com/gokadzev/Musify'),
+                            );
                           },
                         ),
                         const SizedBox(width: 8),
@@ -158,6 +160,16 @@ class AboutPage extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Harmony is an open-source visual redesign and rebrand of the original Musify project. It adds Harmony branding, UI/UX refinements, animations, and themes while preserving the original project attribution and GPL-3.0 license.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                fontSize: 14,
+                height: 1.4,
               ),
             ),
             const MiniPlayerBottomSpace(),

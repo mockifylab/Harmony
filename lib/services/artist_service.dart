@@ -289,12 +289,15 @@ Future<Map<String, dynamic>?> _artistPageOf(
         preferredImage: preferredImage,
       );
 
-  final artistName = normalizeArtistDisplayTitle(
-    knownArtist['title']?.toString() ?? profile.name,
-  );
+  // The artist page itself is the authority on who the artist is: a seed name
+  // can be an uploader channel, or even a song name.
+  final pageName = profile.name.isEmpty
+      ? (knownArtist['title']?.toString() ?? '')
+      : profile.name;
+  final artistName = normalizeArtistDisplayTitle(pageName);
   final artistProfile = {
     ...knownArtist,
-    'title': artistName.isEmpty ? profile.name : artistName,
+    'title': artistName.isEmpty ? pageName : artistName,
     'image':
         knownArtist['image']?.toString() ??
         normalizeArtistThumbnailUrl(profile.thumbnailUrl),
@@ -306,7 +309,7 @@ Future<Map<String, dynamic>?> _artistPageOf(
     'topSongs': [
       for (final (index, song) in profile.topSongs.indexed)
         {
-          'song': returnSongLayout(index, song.video),
+          'song': returnSongLayout(index, song.video, musicTrack: true),
           'playCount': _extractCountToken(song.playCount),
         },
     ],
@@ -319,6 +322,12 @@ Future<Map<String, dynamic>?> _artistPageOf(
         _artistMapFromMusicArtist(related),
     ],
   };
+
+  // The badge is earned by the artist page itself: a seed, or a channel that
+  // returned no songs and no releases, is not a verification.
+  artistProfile['isVerifiedArtist'] =
+      (artistProfile['topSongs'] as List).isNotEmpty ||
+      (artistProfile['releases'] as List).isNotEmpty;
 
   // Don't cache empty pages from unverified channels
   if ((artistProfile['topSongs'] as List).isEmpty &&
@@ -578,7 +587,7 @@ Future<Map<String, dynamic>?> getArtistAlbum(
       'isAlbum': true,
       'list': [
         for (final (index, track) in release.tracks.indexed)
-          returnSongLayout(index, track),
+          returnSongLayout(index, track, musicTrack: true),
       ],
     };
 

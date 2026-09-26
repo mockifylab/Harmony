@@ -35,7 +35,6 @@ import 'package:musify/screens/playlist_folder_page.dart';
 import 'package:musify/screens/playlist_page.dart';
 import 'package:musify/screens/radio_stations_page.dart';
 import 'package:musify/screens/search_page.dart';
-import 'package:musify/screens/settings_page.dart';
 import 'package:musify/screens/time_machine_page.dart';
 import 'package:musify/screens/user_songs_page.dart';
 import 'package:musify/services/playlist_download_service.dart';
@@ -62,6 +61,45 @@ class NavigationManager {
             state: state,
           );
         },
+      ),
+      GoRoute(
+        path: settingsPath,
+        parentNavigatorKey: parentNavigatorKey,
+        pageBuilder: (context, state) {
+          return NoTransitionPage<void>(
+            key: state.pageKey,
+            child: const SizedBox.shrink(),
+          );
+        },
+        routes: [
+          GoRoute(
+            path: 'license',
+            pageBuilder: (context, state) => _pushPage(
+              child: const LicensePage(
+                applicationName: 'Harmony',
+                applicationVersion: appVersion,
+              ),
+              state: state,
+            ),
+          ),
+          GoRoute(
+            path: 'about',
+            pageBuilder: (context, state) =>
+                _pushPage(child: const AboutPage(), state: state),
+          ),
+          GoRoute(
+            path: 'equalizer',
+            pageBuilder: (context, state) =>
+                _pushPage(child: const EqualizerPage(), state: state),
+          ),
+          GoRoute(
+            path: 'import-spotify-playlist',
+            pageBuilder: (context, state) => _pushPage(
+              child: const ImportSpotifyPlaylistPage(),
+              state: state,
+            ),
+          ),
+        ],
       ),
     ];
 
@@ -223,7 +261,21 @@ class NavigationManager {
                 state: state,
               );
             },
-            routes: [_artistRoute(), _albumRoute()],
+            routes: [
+              _artistRoute(),
+              _albumRoute(),
+              // Search-originated playlists stay within the search navigation
+              // stack; home/library playlists use the /home/playlist route.
+              GoRoute(
+                path: 'playlist/:playlistId',
+                pageBuilder: (context, state) => _pushPage(
+                  child: PlaylistPage(
+                    playlistId: state.pathParameters['playlistId'],
+                  ),
+                  state: state,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -252,47 +304,6 @@ class NavigationManager {
                 path: 'radioStations',
                 pageBuilder: (context, state) =>
                     _pushPage(child: const RadioStationsPage(), state: state),
-              ),
-            ],
-          ),
-        ],
-      ),
-      // Branch 3: Settings
-      StatefulShellBranch(
-        navigatorKey: settingsTabNavigatorKey,
-        routes: [
-          GoRoute(
-            path: settingsPath,
-            pageBuilder: (context, state) {
-              return getPage(child: const SettingsPage(), state: state);
-            },
-            routes: [
-              GoRoute(
-                path: 'license',
-                pageBuilder: (context, state) => _pushPage(
-                  child: const LicensePage(
-                    applicationName: 'Musify',
-                    applicationVersion: appVersion,
-                  ),
-                  state: state,
-                ),
-              ),
-              GoRoute(
-                path: 'about',
-                pageBuilder: (context, state) =>
-                    _pushPage(child: const AboutPage(), state: state),
-              ),
-              GoRoute(
-                path: 'equalizer',
-                pageBuilder: (context, state) =>
-                    _pushPage(child: const EqualizerPage(), state: state),
-              ),
-              GoRoute(
-                path: 'import-spotify-playlist',
-                pageBuilder: (context, state) => _pushPage(
-                  child: const ImportSpotifyPlaylistPage(),
-                  state: state,
-                ),
               ),
             ],
           ),

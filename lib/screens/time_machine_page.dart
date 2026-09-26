@@ -32,9 +32,10 @@ import 'package:musify/main.dart';
 import 'package:musify/screens/user_songs_page.dart';
 import 'package:musify/services/listening_stats_service.dart';
 import 'package:musify/services/settings_manager.dart';
-import 'package:musify/utilities/app_utils.dart';
+import 'package:musify/theme/app_themes.dart';
 import 'package:musify/utilities/flutter_toast.dart';
 import 'package:musify/utilities/listening_stats_utils.dart';
+import 'package:musify/widgets/harmony_reveal.dart';
 import 'package:musify/widgets/listening_recap_card.dart';
 import 'package:musify/widgets/mini_player_bottom_space.dart';
 import 'package:musify/widgets/song_bar.dart';
@@ -212,11 +213,16 @@ class _TimeMachinePageState extends State<TimeMachinePage> {
         children: [
           RepaintBoundary(
             key: shareKey,
-            child: ListeningRecapCard(
-              periodLabel: periodLabel,
-              minutes: monthDisplayMinutes(monthStats),
-              songs: previewSongs,
-              onSongTap: (index) => _playSongs(previewSongs, index),
+            // Opaque backdrop so the shared snapshot keeps the page surface
+            // behind the gaps between the cards.
+            child: ColoredBox(
+              color: Theme.of(context).colorScheme.surface,
+              child: ListeningRecapCard(
+                periodLabel: periodLabel,
+                minutes: monthDisplayMinutes(monthStats),
+                songs: previewSongs,
+                onSongTap: (index) => _playSongs(previewSongs, index),
+              ),
             ),
           ),
           if (songs.length > previewSongs.length)
@@ -246,14 +252,19 @@ class _TimeMachinePageState extends State<TimeMachinePage> {
         children: [
           RepaintBoundary(
             key: _yearShareKey,
-            child: ListeningRecapCard(
-              periodLabel: year,
-              minutes: listeningStatsDisplayMinutes(
-                totalSeconds,
-                hasQualifiedSongs: songs.isNotEmpty,
+            // Opaque backdrop so the shared snapshot keeps the page surface
+            // behind the gaps between the cards.
+            child: ColoredBox(
+              color: Theme.of(context).colorScheme.surface,
+              child: ListeningRecapCard(
+                periodLabel: year,
+                minutes: listeningStatsDisplayMinutes(
+                  totalSeconds,
+                  hasQualifiedSongs: songs.isNotEmpty,
+                ),
+                songs: previewSongs,
+                onSongTap: (index) => _playSongs(previewSongs, index),
               ),
-              songs: previewSongs,
-              onSongTap: (index) => _playSongs(previewSongs, index),
             ),
           ),
           if (songs.length > previewSongs.length)
@@ -351,19 +362,27 @@ class _TimeMachinePageState extends State<TimeMachinePage> {
 
                 final songIndex = index - 1;
                 final song = visibleSongs[songIndex];
-                return SongBar(
+                final colorScheme = Theme.of(context).colorScheme;
+                final bar = SongBar(
                   song,
                   true,
-                  borderRadius: getItemBorderRadius(
-                    songIndex,
-                    visibleSongs.length,
-                  ),
+                  backgroundColor: getHarmonyCardColor(colorScheme),
+                  border: getHarmonyCardBorder(colorScheme),
+                  boxShadow: getHarmonyCardShadow(colorScheme),
+                  borderRadius: BorderRadius.circular(18),
                   showPlayTime: true,
                   rank: songIndex + 1,
                   onPlay: () {
                     Navigator.pop(context);
                     _playSongs(visibleSongs, songIndex);
                   },
+                );
+                if (songIndex == visibleSongs.length - 1) {
+                  return HarmonyReveal(child: bar);
+                }
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: HarmonyReveal(child: bar),
                 );
               },
             ),

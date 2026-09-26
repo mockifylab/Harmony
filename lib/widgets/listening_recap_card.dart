@@ -21,9 +21,11 @@
 
 import 'package:material_ui/material_ui.dart';
 import 'package:musify/extensions/l10n.dart';
+import 'package:musify/theme/app_themes.dart';
+import 'package:musify/widgets/harmony_reveal.dart';
 import 'package:musify/widgets/song_bar.dart';
 
-const _musifyIconAsset = 'assets/icons/musify_icon.png';
+const _harmonyIconAsset = 'assets/icons/harmony_fox_foreground.png';
 
 class ListeningRecapCard extends StatelessWidget {
   const ListeningRecapCard({
@@ -42,79 +44,88 @@ class ListeningRecapCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final radius = BorderRadius.circular(18);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  flex: 2,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      SizedBox(
-                        width: double.infinity,
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: AlignmentDirectional.centerStart,
-                          child: Text(
-                            '$minutes',
-                            maxLines: 1,
-                            style: TextStyle(
-                              color: colorScheme.primary,
-                              fontSize: 36,
-                              fontWeight: FontWeight.w800,
-                              height: 1,
-                            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: getHarmonyCardColor(colorScheme),
+            borderRadius: radius,
+            border: getHarmonyCardBorder(colorScheme),
+            boxShadow: getHarmonyCardShadow(colorScheme),
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Text(
+                          '$minutes',
+                          maxLines: 1,
+                          style: TextStyle(
+                            color: colorScheme.primary,
+                            fontSize: 36,
+                            fontWeight: FontWeight.w800,
+                            height: 1,
                           ),
                         ),
                       ),
-                      const SizedBox(height: 5),
-                      Text(
-                        context.l10n!.minutesListened,
-                        maxLines: 2,
-                        style: TextStyle(
-                          color: colorScheme.onSurfaceVariant,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                        ),
+                    ),
+                    const SizedBox(height: 5),
+                    Text(
+                      context.l10n!.minutesListened,
+                      maxLines: 2,
+                      style: TextStyle(
+                        color: colorScheme.onSurfaceVariant,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 12),
-                Flexible(
-                  flex: 3,
-                  child: Align(
-                    alignment: AlignmentDirectional.centerEnd,
-                    child: _RecapBrandHeader(periodLabel: periodLabel),
-                  ),
+              ),
+              const SizedBox(width: 12),
+              Flexible(
+                flex: 3,
+                child: Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: _RecapBrandHeader(periodLabel: periodLabel),
                 ),
-              ],
-            ),
-            if (songs.isNotEmpty) ...[
-              for (var i = 0; i < songs.length; i++)
-                SongBar(
-                  key: ValueKey(songs[i]['ytid'] ?? i),
-                  songs[i],
-                  false,
-                  showPlayTime: true,
-                  rank: i + 1,
-                  onPlay: () => onSongTap(i),
-                  barPadding: const EdgeInsetsDirectional.symmetric(
-                    vertical: 10,
-                  ),
-                ),
+              ),
             ],
-          ],
+          ),
         ),
-      ),
+        for (var i = 0; i < songs.length; i++)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: HarmonyReveal(
+              child: SongBar(
+                key: ValueKey(songs[i]['ytid'] ?? i),
+                songs[i],
+                false,
+                showPlayTime: true,
+                rank: i + 1,
+                onPlay: () => onSongTap(i),
+                backgroundColor: getHarmonyCardColor(colorScheme),
+                border: getHarmonyCardBorder(colorScheme),
+                boxShadow: getHarmonyCardShadow(colorScheme),
+                borderRadius: radius,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -154,13 +165,13 @@ class _RecapBrandHeader extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     ImageIcon(
-                      const AssetImage(_musifyIconAsset),
+                      const AssetImage(_harmonyIconAsset),
                       size: 16,
                       color: colorScheme.onSecondaryContainer,
                     ),
                     const SizedBox(width: 6),
                     Text(
-                      'Musify',
+                      'Harmony',
                       maxLines: 1,
                       style: TextStyle(
                         color: colorScheme.onSecondaryContainer,

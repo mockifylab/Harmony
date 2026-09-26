@@ -164,7 +164,7 @@ Future<List<dynamic>> getUserPlaylists() async {
       return {
         'ytid': plist.id.toString(),
         'title': plist.title,
-        'image': null,
+        'image': plist.thumbnails.mediumResUrl,
         'source': 'user-youtube',
         'list': [],
       };
@@ -953,8 +953,7 @@ Future<List> getPlaylists({
   }
 
   if (playlistsNum != null && query == null) {
-    final suggestedPlaylists = List<Map>.from(playlists)..shuffle();
-    return suggestedPlaylists.take(playlistsNum).toList();
+    return _suggestedDiscoveryPlaylists(playlistsNum);
   }
 
   if (type != 'all') {
@@ -966,6 +965,88 @@ Future<List> getPlaylists({
   }
 
   return playlists;
+}
+
+/// Home "Made for you" rail. The local curated lists carry no Punjabi
+/// metadata at all, so the rail is built from real YouTube playlist
+/// discoveries (cached in [onlinePlaylists]) for the majority of its slots,
+/// with the shuffled local pool filling the remainder so global diversity
+/// is preserved.
+Future<List<Map>> _suggestedDiscoveryPlaylists(int playlistsNum) async {
+  const punjabiFraction = 0.65;
+
+  final punjabiPool = await _discoverPunjabiPlaylists();
+  final localPool = List<Map>.from(playlists)..shuffle();
+
+  final punjabiTarget = (playlistsNum * punjabiFraction).round().clamp(
+    1,
+    playlistsNum,
+  );
+  final punjabiTake = punjabiPool.length < punjabiTarget
+      ? punjabiPool.length
+      : punjabiTarget;
+
+  final merged = <Map>[];
+  final seen = <String>{};
+  void addCandidates(Iterable<Map> candidates) {
+    for (final playlist in candidates) {
+      if (merged.length >= playlistsNum) return;
+      final id = _playlistId(playlist['ytid']);
+      if (id == null || !seen.add(id)) continue;
+      merged.add(playlist);
+    }
+  }
+
+  addCandidates(punjabiPool.take(punjabiTake));
+  addCandidates(localPool);
+  addCandidates(punjabiPool.skip(punjabiTake));
+  return merged;
+}
+
+/// Punjabi playlists discovered through the same real YouTube playlist
+/// search the Search page uses. Discoveries are cached in [onlinePlaylists]
+/// with a `discoveryTag` so later launches reuse them instead of hitting the
+/// network again; any failure (offline, proxy) falls back to the cache and
+/// finally to an empty pool.
+Future<List<Map>> _discoverPunjabiPlaylists() async {
+  final cached = onlinePlaylists.value
+      .where((playlist) => playlist['discoveryTag'] == 'punjabi')
+      .toList();
+  if (cached.isNotEmpty) return cached..shuffle();
+
+  try {
+    final results = await ytClient.search.searchContent(
+      'Punjabi songs',
+      filter: TypeFilters.playlist,
+    );
+
+    final existingIds = onlinePlaylists.value
+        .map((playlist) => _playlistId(playlist['ytid']))
+        .whereType<String>()
+        .toSet();
+
+    final fresh = <Map<String, dynamic>>[];
+    for (final result in results.whereType<SearchPlaylist>()) {
+      final id = result.id.toString();
+      if (!existingIds.add(id)) continue;
+      fresh.add({
+        'ytid': id,
+        'title': result.title,
+        'image': result.thumbnails.first.url.toString(),
+        'source': 'youtube',
+        'list': <dynamic>[],
+        'discoveryTag': 'punjabi',
+      });
+    }
+
+    if (fresh.isNotEmpty) {
+      onlinePlaylists.value = [...onlinePlaylists.value, ...fresh];
+    }
+    return fresh..shuffle();
+  } catch (e, st) {
+    logger.log('Punjabi playlist discovery failed', error: e, stackTrace: st);
+    return cached..shuffle();
+  }
 }
 
 Future<List<Map<String, dynamic>>> searchArtists(

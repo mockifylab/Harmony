@@ -73,7 +73,7 @@ jobs:
           repo_name: gokadzev/Musify
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           file: build/app/outputs/flutter-apk/app-fdroid-release.apk
-          asset_name: Musify-fdroid.apk
+          asset_name: Harmony-fdroid.apk
           tag: ${{ steps.extract_version.outputs.version }}
           prerelease: false
           overwrite: true

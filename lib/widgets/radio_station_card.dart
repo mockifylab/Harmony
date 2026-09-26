@@ -23,6 +23,7 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:musify/models/radio_model.dart';
 import 'package:musify/services/common_services.dart';
+import 'package:musify/theme/app_themes.dart';
 import 'package:musify/utilities/artwork_provider.dart';
 import 'package:musify/widgets/shapes/eight_leaf_clover_shape.dart';
 
@@ -32,11 +33,19 @@ class RadioStationCard extends StatefulWidget {
     required this.station,
     required this.onPressed,
     this.onFavoritesChanged,
+    this.backgroundColor,
+    this.border,
+    this.boxShadow,
+    this.borderRadius = const BorderRadius.all(Radius.circular(16)),
   });
 
   final RadioStation station;
   final VoidCallback onPressed;
   final VoidCallback? onFavoritesChanged;
+  final Color? backgroundColor;
+  final BoxBorder? border;
+  final List<BoxShadow>? boxShadow;
+  final BorderRadius borderRadius;
 
   @override
   State<RadioStationCard> createState() => _RadioStationCardState();
@@ -88,12 +97,14 @@ class _RadioStationCardState extends State<RadioStationCard> {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
 
-    return Card(
-      elevation: 0,
-      color: colorScheme.surfaceContainer,
+    return Container(
+      decoration: BoxDecoration(
+        color: widget.backgroundColor ?? colorScheme.surfaceContainer,
+        borderRadius: widget.borderRadius,
+        border: widget.border,
+        boxShadow: widget.boxShadow,
+      ),
       clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      margin: EdgeInsets.zero,
       child: GestureDetector(
         onTap: widget.onPressed,
         child: Padding(
@@ -151,7 +162,7 @@ class _RadioStationCardState extends State<RadioStationCard> {
               ValueListenableBuilder<bool>(
                 valueListenable: _isFavorited,
                 builder: (context, isFavorited, _) {
-                  return IconButton.filledTonal(
+                  return IconButton(
                     onPressed: _handleFavoriteTap,
                     icon: Icon(
                       isFavorited
@@ -159,16 +170,16 @@ class _RadioStationCardState extends State<RadioStationCard> {
                           : FluentIcons.heart_24_regular,
                       size: 18,
                     ),
-                    style: IconButton.styleFrom(
-                      backgroundColor: isFavorited
-                          ? colorScheme.primaryContainer
-                          : colorScheme.surfaceContainerHighest,
-                      foregroundColor: isFavorited
-                          ? colorScheme.onPrimaryContainer
-                          : colorScheme.onSurfaceVariant,
-                      minimumSize: const Size(36, 36),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
+                    style:
+                        getHarmonyCircleActionStyle(
+                          colorScheme,
+                          active: isFavorited,
+                        ).copyWith(
+                          minimumSize: const WidgetStatePropertyAll(
+                            Size(36, 36),
+                          ),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
                   );
                 },
               ),

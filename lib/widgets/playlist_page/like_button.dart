@@ -26,6 +26,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:musify/extensions/l10n.dart';
 import 'package:musify/services/common_services.dart';
 import 'package:musify/services/playlists_manager.dart';
+import 'package:musify/theme/app_themes.dart';
 
 /// Likes a playlist, an album or an artist, and follows the liked playlists so
 /// that the same one stays in sync wherever it is shown.
@@ -90,26 +91,24 @@ class _PlaylistLikeButtonState extends State<PlaylistLikeButton> {
   Widget build(BuildContext context) {
     if (widget.playlistId.isEmpty) return const SizedBox.shrink();
 
+    final colorScheme = Theme.of(context).colorScheme;
+
     return ValueListenableBuilder<bool>(
       valueListenable: _isLiked,
       builder: (context, isLiked, __) {
-        final icon = Icon(
-          isLiked ? FluentIcons.heart_24_filled : FluentIcons.heart_24_regular,
+        return IconButton(
+          icon: Icon(
+            isLiked
+                ? FluentIcons.heart_24_filled
+                : FluentIcons.heart_24_regular,
+          ),
+          iconSize: 24,
+          onPressed: _toggleLikeStatus,
+          tooltip: isLiked
+              ? context.l10n!.removeFromLikedPlaylists
+              : context.l10n!.addToLikedPlaylists,
+          style: getHarmonyCircleActionStyle(colorScheme, active: isLiked),
         );
-
-        return isLiked
-            ? IconButton.filled(
-                icon: icon,
-                iconSize: 24,
-                onPressed: _toggleLikeStatus,
-                tooltip: context.l10n!.removeFromLikedPlaylists,
-              )
-            : IconButton.filledTonal(
-                icon: icon,
-                iconSize: 24,
-                onPressed: _toggleLikeStatus,
-                tooltip: context.l10n!.addToLikedPlaylists,
-              );
       },
     );
   }

@@ -22,6 +22,7 @@
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:musify/extensions/l10n.dart';
+import 'package:musify/theme/app_themes.dart';
 import 'package:musify/utilities/flutter_toast.dart';
 import 'package:musify/utilities/playlist_dialogs.dart';
 
@@ -59,11 +60,12 @@ class _PlaylistAddToPlaylistButtonState
       );
     }
 
-    return IconButton.filledTonal(
+    return IconButton(
       icon: const Icon(FluentIcons.album_add_24_regular),
       iconSize: 24,
       onPressed: _resolveAndAdd,
       tooltip: context.l10n!.addToPlaylist,
+      style: getHarmonyCircleActionStyle(Theme.of(context).colorScheme),
     );
   }
 

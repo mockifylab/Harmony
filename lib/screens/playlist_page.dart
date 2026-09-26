@@ -34,13 +34,16 @@ import 'package:musify/services/playlist_download_service.dart';
 import 'package:musify/services/playlist_sharing.dart';
 import 'package:musify/services/playlists_manager.dart';
 import 'package:musify/services/settings_manager.dart';
+import 'package:musify/theme/app_themes.dart';
 import 'package:musify/utilities/app_utils.dart';
 import 'package:musify/utilities/async_loader.dart';
 import 'package:musify/utilities/flutter_toast.dart';
+import 'package:musify/utilities/harmony_dialogs.dart';
 import 'package:musify/utilities/playlist_utils.dart';
 import 'package:musify/utilities/song_filtering.dart';
 import 'package:musify/utilities/sort_utils.dart';
 import 'package:musify/widgets/edit_playlist_dialog.dart';
+import 'package:musify/widgets/harmony_reveal.dart';
 import 'package:musify/widgets/mini_player_bottom_space.dart';
 import 'package:musify/widgets/playlist_hero_artwork.dart';
 import 'package:musify/widgets/playlist_page/add_to_playlist_button.dart';
@@ -208,6 +211,7 @@ class _PlaylistPageState extends State<PlaylistPage> {
                     artwork: PlaylistHeroArtwork(
                       _playlist,
                       cubeIcon: widget.cubeIcon,
+                      styled: true,
                     ),
                   ),
                   SliverToBoxAdapter(child: _buildHeaderSection()),
@@ -223,11 +227,18 @@ class _PlaylistPageState extends State<PlaylistPage> {
                             itemBuilder: (context, index) {
                               final isRemovable =
                                   _playlist['source'] == 'user-created';
-                              return _buildSongListItem(
+                              final item = _buildSongListItem(
                                 sourceList[index],
                                 index,
                                 isRemovable,
-                                sourceList,
+                              );
+                              final revealed = HarmonyReveal(child: item);
+                              if (index == sourceList.length - 1) {
+                                return revealed;
+                              }
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: revealed,
                               );
                             },
                           ),
@@ -263,10 +274,9 @@ class _PlaylistPageState extends State<PlaylistPage> {
           // Cap rendered rows to limit simultaneous artwork loads; do not refetch or backfill.
           final visibleSongs = data
               .where(
-                (song) =>
-                    !_addedRecommendedSongIds.contains(
-                      song['ytid']?.toString(),
-                    ),
+                (song) => !_addedRecommendedSongIds.contains(
+                  song['ytid']?.toString(),
+                ),
               )
               .take(_visibleRecommendedSongsCount)
               .toList();
@@ -408,9 +418,10 @@ class _PlaylistPageState extends State<PlaylistPage> {
   }
 
   Widget _buildShareButton() {
-    return IconButton.filledTonal(
+    return IconButton(
       icon: const Icon(FluentIcons.share_24_regular),
       iconSize: 24,
+      style: getHarmonyCircleActionStyle(Theme.of(context).colorScheme),
       onPressed: () async {
         try {
           final encodedPlaylist = PlaylistSharingService.encodePlaylist(
@@ -437,20 +448,22 @@ class _PlaylistPageState extends State<PlaylistPage> {
   }
 
   Widget _buildSyncButton() {
-    return IconButton.filledTonal(
+    return IconButton(
       icon: const Icon(FluentIcons.arrow_sync_24_filled),
       iconSize: 24,
+      style: getHarmonyCircleActionStyle(Theme.of(context).colorScheme),
       onPressed: _handleSyncPlaylist,
       tooltip: context.l10n!.update,
     );
   }
 
   Widget _buildEditButton() {
-    return IconButton.filledTonal(
+    return IconButton(
       icon: const Icon(FluentIcons.edit_24_filled),
       iconSize: 24,
+      style: getHarmonyCircleActionStyle(Theme.of(context).colorScheme),
       onPressed: () async {
-        final result = await showDialog<Map?>(
+        final result = await showHarmonyDialog<Map?>(
           context: context,
           builder: (context) => EditPlaylistDialog(playlistData: _playlist),
         );
@@ -698,14 +711,8 @@ class _PlaylistPageState extends State<PlaylistPage> {
     }
   }
 
-  Widget _buildSongListItem(
-    Map song,
-    int index,
-    bool isRemovable,
-    List sourceList,
-  ) {
-    final totalItems = sourceList.length;
-    final borderRadius = getItemBorderRadius(index, totalItems);
+  Widget _buildSongListItem(Map song, int index, bool isRemovable) {
+    final colorScheme = Theme.of(context).colorScheme;
     final isUserCreatedPlaylist = _playlist?['source'] == 'user-created';
     final playlistId = isUserCreatedPlaylist ? _playlist!['ytid'] : null;
     final isSearching = _searchQueryNotifier.value.isNotEmpty;
@@ -738,7 +745,10 @@ class _PlaylistPageState extends State<PlaylistPage> {
           songIndex: fullIndex != -1 ? fullIndex : index,
         );
       },
-      borderRadius: borderRadius,
+      borderRadius: BorderRadius.circular(18),
+      backgroundColor: getHarmonyCardColor(colorScheme),
+      border: getHarmonyCardBorder(colorScheme),
+      boxShadow: getHarmonyCardShadow(colorScheme),
       playlistId: playlistId,
       onRenamed: () => setState(() {}),
     );

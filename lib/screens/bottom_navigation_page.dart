@@ -20,22 +20,38 @@
  */
 
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
+
+import 'dart:ui';
+
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:musify/constants/app_constants.dart';
 import 'package:musify/extensions/l10n.dart';
 import 'package:musify/main.dart';
+import 'package:musify/screens/settings_page.dart';
 import 'package:musify/services/settings_manager.dart';
+import 'package:musify/theme/app_themes.dart';
 import 'package:musify/utilities/flutter_bottom_sheet.dart'
     show closeCurrentBottomSheet;
+import 'package:musify/utilities/playlist_dialogs.dart';
 import 'package:musify/widgets/mini_player.dart';
 
 class BottomNavigationPage extends StatefulWidget {
   const BottomNavigationPage({required this.child, super.key});
 
   final StatefulNavigationShell child;
+
+  /// Geometry of the bottom bar, so popup menus can be kept above it. Null
+  /// on large screens, where navigation is a rail instead of a bottom bar.
+  static final GlobalKey bottomBarKey = GlobalKey();
+
+  static Rect? bottomBarBounds() {
+    final box =
+        bottomBarKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.attached || !box.hasSize) return null;
+    return box.localToGlobal(Offset.zero) & box.size;
+  }
 
   @override
   State<BottomNavigationPage> createState() => _BottomNavigationPageState();
@@ -82,11 +98,12 @@ class _BottomNavigationPageState extends State<BottomNavigationPage> {
               final items = _getNavigationItems(isOfflineMode);
 
               return Scaffold(
-                body: SafeArea(
-                  child: Row(
-                    children: [
-                      if (isLargeScreen)
-                        NavigationRail(
+                body: Row(
+                  children: [
+                    if (isLargeScreen)
+                      SafeArea(
+                        right: false,
+                        child: NavigationRail(
                           labelType: NavigationRailLabelType.selected,
                           destinations: items
                               .map(
@@ -101,64 +118,96 @@ class _BottomNavigationPageState extends State<BottomNavigationPage> {
                           onDestinationSelected: (index) =>
                               _onTabTapped(index, items),
                         ),
-                      Expanded(
-                        child: StreamBuilder<bool>(
-                          initialData: audioHandler.mediaItem.value != null,
-                          stream: _miniPlayerVisibilityStream,
-                          builder: (context, snapshot) {
-                            final mediaQuery = MediaQuery.of(context);
-                            final isMiniPlayerVisible = snapshot.data ?? false;
-                            final bottomPadding = !isMiniPlayerVisible
-                                ? mediaQuery.padding.bottom
-                                : mediaQuery.padding.bottom +
-                                      miniPlayerTotalHeight;
-
-                            return Stack(
-                              alignment: Alignment.bottomCenter,
-                              children: [
-                                MediaQuery(
-                                  data: mediaQuery.copyWith(
-                                    padding: mediaQuery.padding.copyWith(
-                                      bottom: bottomPadding,
+                      ),
+                    Expanded(
+                      child: StreamBuilder<bool>(
+                        initialData: audioHandler.mediaItem.value != null,
+                        stream: _miniPlayerVisibilityStream,
+                        builder: (context, snapshot) {
+                          final mediaQuery = MediaQuery.of(context);
+                          final bottomInset = mediaQuery.padding.bottom;
+                          return ValueListenableBuilder<bool>(
+                            valueListenable: settingsDrawerOpen,
+                            builder: (context, isSettingsOpen, _) {
+                              return Stack(
+                                children: [
+                                  AnimatedContainer(
+                                    duration: const Duration(milliseconds: 300),
+                                    curve: Curves.easeOutCubic,
+                                    transform: Matrix4.translationValues(
+                                      isSettingsOpen ? 58.0 : 0.0,
+                                      0,
+                                      0,
+                                    ),
+                                    child: Stack(
+                                      children: [
+                                        MediaQuery(
+                                          data: mediaQuery,
+                                          child: widget.child,
+                                        ),
+                                        Positioned(
+                                          left: 20,
+                                          right: 20,
+                                          bottom: 80 + bottomInset,
+                                          child: const MiniPlayer(),
+                                        ),
+                                        if (!isLargeScreen)
+                                          Positioned(
+                                            left: 20,
+                                            right: 20,
+                                            bottom: 10 + bottomInset,
+                                            child: _ModernBottomBar(
+                                              items: items,
+                                              selectedIndex: _getCurrentIndex(
+                                                items,
+                                                isOfflineMode,
+                                              ),
+                                              onTap: (index) =>
+                                                  _onTabTapped(index, items),
+                                            ),
+                                          ),
+                                      ],
                                     ),
                                   ),
-                                  child: widget.child,
-                                ),
-                                const Padding(
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 8,
+                                  if (isSettingsOpen)
+                                    Positioned.fill(
+                                      child: GestureDetector(
+                                        onTap: () =>
+                                            settingsDrawerOpen.value = false,
+                                        child: Container(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.58,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  Positioned(
+                                    left: 0,
+                                    top: 0,
+                                    bottom: 0,
+                                    width: constraints.maxWidth - 58,
+                                    child: AnimatedSlide(
+                                      offset: isSettingsOpen
+                                          ? Offset.zero
+                                          : const Offset(-1, 0),
+                                      duration: const Duration(
+                                        milliseconds: 300,
+                                      ),
+                                      curve: Curves.easeOutCubic,
+                                      child: SettingsPage(
+                                        isOpen: isSettingsOpen,
+                                      ),
+                                    ),
                                   ),
-                                  child: MiniPlayer(),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
+                                ],
+                              );
+                            },
+                          );
+                        },
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                bottomNavigationBar: !isLargeScreen
-                    ? NavigationBar(
-                        selectedIndex: _getCurrentIndex(items, isOfflineMode),
-                        labelBehavior: languageSetting == const Locale('en', '')
-                            ? NavigationDestinationLabelBehavior
-                                  .onlyShowSelected
-                            : NavigationDestinationLabelBehavior.alwaysHide,
-                        onDestinationSelected: (index) =>
-                            _onTabTapped(index, items),
-                        destinations: items
-                            .map(
-                              (item) => NavigationDestination(
-                                icon: Icon(item.icon),
-                                selectedIcon: Icon(item.selectedIcon),
-                                label: item.label,
-                              ),
-                            )
-                            .toList(),
-                      )
-                    : null,
               );
             },
           );
@@ -191,16 +240,22 @@ class _BottomNavigationPageState extends State<BottomNavigationPage> {
 
     items.addAll([
       _NavigationItem(
-        icon: FluentIcons.book_24_regular,
-        selectedIcon: FluentIcons.book_24_filled,
+        icon: FluentIcons.library_24_regular,
+        selectedIcon: FluentIcons.library_24_filled,
         label: context.l10n?.library ?? 'Library',
         shellIndex: 2,
       ),
-      _NavigationItem(
-        icon: FluentIcons.settings_24_regular,
-        selectedIcon: FluentIcons.settings_24_filled,
-        label: context.l10n?.settings ?? 'Settings',
-        shellIndex: 3,
+      const _NavigationItem(
+        icon: FluentIcons.add_24_regular,
+        selectedIcon: FluentIcons.add_24_filled,
+        label: 'Create Playlist',
+        isAction: true,
+      ),
+      const _NavigationItem(
+        icon: FluentIcons.history_24_regular,
+        selectedIcon: FluentIcons.history_24_filled,
+        label: 'History',
+        isHistory: true,
       ),
     ]);
 
@@ -222,20 +277,37 @@ class _BottomNavigationPageState extends State<BottomNavigationPage> {
   void _onTabTapped(int index, List<_NavigationItem> items) {
     if (index < items.length) {
       final item = items[index];
-      final isReselect = _previousShellIndex == item.shellIndex;
 
-      // Close any open bottom sheet before switching tabs
+      // Subtle selection tick; deliberately not a long press feedback.
+      HapticFeedback.selectionClick();
+
+      // Close any open bottom sheet before handling the action.
       closeCurrentBottomSheet();
+
+      if (item.isAction) {
+        showCreatePlaylistDialog(context);
+        return;
+      }
+
+      if (item.isHistory) {
+        context.push('/home/timeMachine');
+        return;
+      }
+
+      final shellIndex = item.shellIndex;
+      if (shellIndex == null) return;
+
+      final isReselect = _previousShellIndex == shellIndex;
 
       // If user taps the same tab again, reset it to initial state.
       // Otherwise, preserve the branch state.
       if (isReselect) {
-        widget.child.goBranch(item.shellIndex, initialLocation: true);
+        widget.child.goBranch(shellIndex, initialLocation: true);
       } else {
-        widget.child.goBranch(item.shellIndex);
+        widget.child.goBranch(shellIndex);
       }
 
-      _previousShellIndex = item.shellIndex;
+      _previousShellIndex = shellIndex;
     }
   }
 
@@ -243,6 +315,13 @@ class _BottomNavigationPageState extends State<BottomNavigationPage> {
     final currentShellIndex = widget.child.currentIndex;
 
     if (items.isEmpty) return 0;
+
+    final currentLocation = GoRouterState.of(context).uri.toString();
+    final historyIndex = items.indexWhere((item) => item.isHistory);
+
+    if (historyIndex != -1 && currentLocation.startsWith('/home/timeMachine')) {
+      return historyIndex;
+    }
 
     // Try to find the current shell index in the available items
     final matchedIndex = items.indexWhere(
@@ -264,11 +343,157 @@ class _NavigationItem {
     required this.icon,
     required this.selectedIcon,
     required this.label,
-    required this.shellIndex,
+    this.shellIndex,
+    this.isAction = false,
+    this.isHistory = false,
   });
 
   final IconData icon;
   final IconData selectedIcon;
   final String label;
-  final int shellIndex;
+  final int? shellIndex;
+  final bool isAction;
+  final bool isHistory;
+}
+
+class _ModernBottomBar extends StatelessWidget {
+  const _ModernBottomBar({
+    required this.items,
+    required this.selectedIndex,
+    required this.onTap,
+  });
+
+  final List<_NavigationItem> items;
+  final int selectedIndex;
+  final ValueChanged<int> onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return ClipRRect(
+      key: BottomNavigationPage.bottomBarKey,
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 22, sigmaY: 22),
+        child: Container(
+          height: 64,
+          decoration: BoxDecoration(
+            color: getGlassSurfaceColor(colorScheme),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: getGlassBorderColor(colorScheme),
+              width: 1,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: getGlassShadowColor(colorScheme),
+                blurRadius: 18,
+                spreadRadius: 0,
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: Row(
+              children: List.generate(items.length, (index) {
+                return Expanded(
+                  child: _ModernNavItem(
+                    item: items[index],
+                    selected: index == selectedIndex,
+                    onTap: () => onTap(index),
+                  ),
+                );
+              }),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ModernNavItem extends StatelessWidget {
+  const _ModernNavItem({
+    required this.item,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final _NavigationItem item;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        splashFactory: NoSplash.splashFactory,
+        overlayColor: WidgetStateProperty.all(Colors.transparent),
+        child: AnimatedAlign(
+          duration: const Duration(milliseconds: 320),
+          curve: Curves.easeOutCubic,
+          alignment: selected ? const Alignment(0, -0.28) : Alignment.center,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                selected ? item.selectedIcon : item.icon,
+                size: 25,
+                color: selected
+                    ? colorScheme.primary
+                    : colorScheme.onSurfaceVariant,
+              ),
+              ClipRect(
+                child: AnimatedSize(
+                  duration: const Duration(milliseconds: 320),
+                  curve: Curves.easeOutCubic,
+                  alignment: Alignment.topCenter,
+                  child: selected
+                      ? TweenAnimationBuilder<double>(
+                          tween: Tween(begin: 0, end: 1),
+                          duration: const Duration(milliseconds: 320),
+                          curve: Curves.easeOutCubic,
+                          builder: (context, value, child) {
+                            return Opacity(
+                              opacity: value,
+                              child: Transform.translate(
+                                offset: Offset(0, 8 * (1 - value)),
+                                child: child,
+                              ),
+                            );
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.only(
+                              top: 1,
+                              left: 2,
+                              right: 2,
+                            ),
+                            child: Text(
+                              item.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w700,
+                                    color: colorScheme.onSurface,
+                                  ),
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

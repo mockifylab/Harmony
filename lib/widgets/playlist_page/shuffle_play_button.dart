@@ -23,6 +23,7 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:musify/extensions/l10n.dart';
 import 'package:musify/main.dart';
+import 'package:musify/theme/app_themes.dart';
 
 class ShufflePlayButton extends StatelessWidget {
   const ShufflePlayButton({super.key, required this.songs});
@@ -31,10 +32,11 @@ class ShufflePlayButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton.filledTonal(
+    return IconButton(
       icon: const Icon(FluentIcons.arrow_shuffle_24_regular),
       iconSize: 24,
       tooltip: context.l10n!.shuffle,
+      style: getHarmonyCircleActionStyle(Theme.of(context).colorScheme),
       onPressed: () async {
         if (songs.isEmpty) return;
         final shuffledSongs = List<Map>.from(songs.whereType<Map>());

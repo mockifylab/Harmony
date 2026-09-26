@@ -25,6 +25,7 @@ import 'package:musify/constants/app_constants.dart';
 import 'package:musify/extensions/l10n.dart';
 import 'package:musify/services/playlists_manager.dart';
 import 'package:musify/utilities/flutter_toast.dart';
+import 'package:musify/utilities/harmony_dialogs.dart';
 import 'package:musify/utilities/playlist_image_picker.dart';
 import 'package:musify/widgets/dialog_item.dart';
 
@@ -39,7 +40,7 @@ void showCreatePlaylistDialog(
   String? imageUrl;
   String? imageBase64;
 
-  showDialog(
+  showHarmonyDialog(
     context: context,
     builder: (BuildContext context) {
       return StatefulBuilder(
@@ -349,7 +350,7 @@ void showAddToPlaylistDialog(
   dynamic song,
   List<dynamic>? songs,
 }) {
-  showDialog(
+  showHarmonyDialog(
     context: context,
     builder: (BuildContext context) {
       final colorScheme = Theme.of(context).colorScheme;

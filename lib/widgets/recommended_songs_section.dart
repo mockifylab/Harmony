@@ -23,7 +23,9 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:musify/constants/app_constants.dart';
 import 'package:musify/main.dart';
+import 'package:musify/theme/app_themes.dart';
 import 'package:musify/utilities/app_utils.dart';
+import 'package:musify/widgets/harmony_reveal.dart';
 import 'package:musify/widgets/section_header.dart';
 import 'package:musify/widgets/song_bar.dart';
 
@@ -78,8 +80,8 @@ class RecommendedSongsSection extends StatelessWidget {
           padding: commonListViewBottomPadding,
           itemBuilder: (context, index) {
             final song = songs[index];
-            final borderRadius = getItemBorderRadius(index, songs.length);
-            return RepaintBoundary(
+            final colorScheme = Theme.of(context).colorScheme;
+            final bar = RepaintBoundary(
               key: listItemKey(listKeyPrefix, index, song),
               child: SongBar(
                 song,
@@ -89,11 +91,21 @@ class RecommendedSongsSection extends StatelessWidget {
                   bottom: 10,
                   start: 12,
                 ),
-                borderRadius: borderRadius,
+                backgroundColor: getHarmonyCardColor(colorScheme),
+                border: getHarmonyCardBorder(colorScheme),
+                boxShadow: getHarmonyCardShadow(colorScheme),
+                borderRadius: BorderRadius.circular(18),
                 onAdd: onAddSong != null && song is Map
                     ? () => onAddSong!(song)
                     : null,
               ),
+            );
+            if (index == songs.length - 1) {
+              return HarmonyReveal(child: bar);
+            }
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: HarmonyReveal(child: bar),
             );
           },
         ),

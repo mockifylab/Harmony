@@ -11,7 +11,7 @@ import 'package:musify/services/playlists_manager.dart';
 import 'package:musify/utilities/flutter_toast.dart';
 import 'package:musify/utilities/formatter.dart';
 import 'package:musify/utilities/url_launcher.dart';
-import 'package:musify/widgets/mini_player.dart';
+import 'package:musify/widgets/mini_player_bottom_space.dart';
 import 'package:youtube_explode_dart/youtube_explode_dart.dart';
 
 /// A CSV row and its original position, used to preserve playlist order.
@@ -255,7 +255,12 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
           expectedTitle: expectedTitle,
         );
         if (video == null) return (null, false);
-        return (Map<String, dynamic>.from(returnSongLayout(0, video)), false);
+        return (
+          Map<String, dynamic>.from(
+            returnSongLayout(0, video, musicTrack: true),
+          ),
+          false,
+        );
       } on RequestLimitExceededException {
         // A single short retry for a transient hiccup; a second hit means
         // it's a genuine, sustained block.
@@ -407,7 +412,7 @@ class _ImportSpotifyPlaylistPageState extends State<ImportSpotifyPlaylistPage> {
                 style: Theme.of(context).textTheme.bodySmall,
               ),
             ],
-            const SizedBox(height: MiniPlayer.playerHeight + 24),
+            const MiniPlayerBottomSpace(),
           ],
         ),
       ),

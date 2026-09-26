@@ -21,8 +21,10 @@
 
 import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:musify/widgets/harmony_reveal.dart';
 import 'package:musify/widgets/playlist_cube.dart';
 import 'package:musify/widgets/section_header.dart';
+import 'package:musify/widgets/verified_artist_badge.dart';
 
 /// A titled row of artwork on the artist page: its releases, or the artists
 /// suggested next to it. Releases are shown square, artists round.
@@ -70,8 +72,9 @@ class ArtistShelf extends StatelessWidget {
             scrollDirection: Axis.horizontal,
             itemCount: items.length,
             separatorBuilder: (_, __) => const SizedBox(width: 12),
-            itemBuilder: (context, index) =>
-                _buildCube(context, items[index], cubeSize),
+            itemBuilder: (context, index) => HarmonyReveal(
+              child: _buildCube(context, items[index], cubeSize),
+            ),
           ),
         ),
       ],
@@ -100,6 +103,35 @@ class ArtistShelf extends StatelessWidget {
       showTypeLabel: false,
     );
 
+    final titleText = Text(
+      item['title']?.toString() ?? '',
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      textAlign: circular ? TextAlign.center : TextAlign.start,
+      style: TextStyle(
+        fontWeight: FontWeight.w600,
+        fontSize: _titleFontSize,
+        height: _lineHeight,
+        color: colorScheme.onSurface,
+      ),
+    );
+
+    // Only the circular shelf lists artists; a square shelf lists releases,
+    // whose title is a release name, not an artist credit. The badge follows
+    // the same real isVerifiedArtist signal the other artist surfaces use.
+    final showVerified = circular && item['isVerifiedArtist'] == true;
+    final title = showVerified
+        ? Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Flexible(child: titleText),
+              const SizedBox(width: 5),
+              const VerifiedArtistBadge(size: 14),
+            ],
+          )
+        : titleText;
+
     return SizedBox(
       width: cubeSize,
       child: GestureDetector(
@@ -112,18 +144,7 @@ class ArtistShelf extends StatelessWidget {
           children: [
             if (circular) ClipOval(child: artwork) else artwork,
             const SizedBox(height: _artworkGap),
-            Text(
-              item['title']?.toString() ?? '',
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: circular ? TextAlign.center : TextAlign.start,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: _titleFontSize,
-                height: _lineHeight,
-                color: colorScheme.onSurface,
-              ),
-            ),
+            title,
             if (subtitle != null && subtitle.isNotEmpty) ...[
               const SizedBox(height: _labelGap),
               Text(

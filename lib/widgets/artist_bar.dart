@@ -24,17 +24,24 @@ import 'package:material_ui/material_ui.dart';
 import 'package:musify/extensions/l10n.dart';
 import 'package:musify/services/artist_service.dart';
 import 'package:musify/utilities/artwork_provider.dart';
+import 'package:musify/widgets/verified_artist_badge.dart';
 
 class ArtistBar extends StatelessWidget {
   const ArtistBar({
     super.key,
     required this.artist,
     required this.onTap,
+    this.backgroundColor,
+    this.border,
+    this.boxShadow,
     this.borderRadius = BorderRadius.zero,
   });
 
   final Map artist;
   final VoidCallback onTap;
+  final Color? backgroundColor;
+  final BoxBorder? border;
+  final List<BoxShadow>? boxShadow;
   final BorderRadius borderRadius;
 
   @override
@@ -45,50 +52,68 @@ class ArtistBar extends StatelessWidget {
     );
     final image = normalizeArtistThumbnailUrl(artist['image']?.toString());
 
-    return Material(
-      color: colorScheme.surfaceContainerLow,
-      borderRadius: borderRadius,
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
-          child: Row(
-            children: [
-              _ArtistArtwork(image: image),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      title,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
-                        color: colorScheme.onSurface,
+    return Container(
+      decoration: BoxDecoration(
+        color: backgroundColor ?? colorScheme.surfaceContainerLow,
+        borderRadius: borderRadius,
+        border: border,
+        boxShadow: boxShadow,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: borderRadius,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
+            child: Row(
+              children: [
+                _ArtistArtwork(image: image),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              title,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                                color: colorScheme.onSurface,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (artist['isVerifiedArtist'] == true) ...[
+                            const SizedBox(width: 5),
+                            const VerifiedArtistBadge(size: 14),
+                          ],
+                        ],
                       ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      context.l10n!.artist,
-                      style: TextStyle(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
+                      const SizedBox(height: 3),
+                      Text(
+                        context.l10n!.artist,
+                        style: TextStyle(
+                          color: colorScheme.onSurfaceVariant,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              Icon(
-                FluentIcons.chevron_right_24_regular,
-                color: colorScheme.onSurfaceVariant,
-                size: 20,
-              ),
-            ],
+                Icon(
+                  FluentIcons.chevron_right_24_regular,
+                  color: colorScheme.onSurfaceVariant,
+                  size: 20,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -108,7 +133,11 @@ class _ArtistArtwork extends StatelessWidget {
     if (image != null && image!.isNotEmpty) {
       return ClipOval(
         child: Image(
-          image: ArtworkProvider.get(image!),
+          image: ResizeImage.resizeIfNeeded(
+            104,
+            null,
+            ArtworkProvider.get(image!),
+          ),
           width: 52,
           height: 52,
           fit: BoxFit.cover,

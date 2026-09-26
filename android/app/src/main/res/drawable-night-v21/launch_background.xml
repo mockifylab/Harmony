@@ -4,6 +4,5 @@
         <bitmap android:gravity="fill" android:src="@drawable/background"/>
     </item>
     <item>
-        <bitmap android:gravity="center" android:src="@mipmap/ic_launcher_adaptive_fore"/>
     </item>
 </layer-list>

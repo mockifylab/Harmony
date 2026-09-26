@@ -28,8 +28,11 @@ import 'package:fluentui_system_icons/fluentui_system_icons.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:musify/extensions/l10n.dart';
 import 'package:musify/main.dart';
+import 'package:musify/utilities/harmony_dialogs.dart';
 import 'package:musify/widgets/confirmation_dialog.dart';
 import 'package:musify/widgets/no_artwork_cube.dart';
+import 'package:musify/widgets/playing_indicator_bars.dart';
+import 'package:musify/widgets/verified_artist_badge.dart';
 
 class QueueWidget extends StatefulWidget {
   const QueueWidget({super.key, this.isBottomSheet = false});
@@ -44,7 +47,9 @@ class _QueueWidgetState extends State<QueueWidget> {
   List<Map> _queue = [];
   late StreamSubscription<List<Map>> _subscription;
   late StreamSubscription<MediaItem?> _mediaSubscription;
+  late StreamSubscription<PlaybackState> _playbackSubscription;
   bool _isDismissing = false;
+  bool _isPlaying = false;
   bool _hasScrolledToInitial = false;
   final ScrollController _scrollController = ScrollController();
 
@@ -68,6 +73,16 @@ class _QueueWidgetState extends State<QueueWidget> {
         .listen((_) {
           if (mounted && !_isDismissing) setState(() {});
         });
+    // playing state drives the current-song indicator bars.
+    _playbackSubscription = audioHandler.playbackState.listen((state) {
+      if (!mounted) return;
+      final isPlaying = state.playing;
+      if (isPlaying != _isPlaying) {
+        setState(() {
+          _isPlaying = isPlaying;
+        });
+      }
+    });
   }
 
   void _scrollToCurrentSong() {
@@ -94,6 +109,7 @@ class _QueueWidgetState extends State<QueueWidget> {
   void dispose() {
     _subscription.cancel();
     _mediaSubscription.cancel();
+    _playbackSubscription.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -134,7 +150,7 @@ class _QueueWidgetState extends State<QueueWidget> {
   }
 
   void _confirmClearQueue(BuildContext context) {
-    showDialog<void>(
+    showHarmonyDialog<void>(
       context: context,
       builder: (_) => ConfirmationDialog(
         confirmationMessage: context.l10n!.clearQueueQuestion,
@@ -333,6 +349,7 @@ class _QueueWidgetState extends State<QueueWidget> {
           index: index,
           queueEntryId: queueEntryId,
           isCurrentSong: isCurrentSong,
+          isPlaying: _isPlaying,
           colorScheme: colorScheme,
           onTap: () {
             audioHandler.skipToSong(index);
@@ -367,6 +384,7 @@ class QueueTile extends StatelessWidget {
     required this.index,
     required this.queueEntryId,
     required this.isCurrentSong,
+    required this.isPlaying,
     required this.colorScheme,
     required this.onTap,
     required this.onDismissed,
@@ -377,6 +395,7 @@ class QueueTile extends StatelessWidget {
   final int index;
   final String queueEntryId;
   final bool isCurrentSong;
+  final bool isPlaying;
   final ColorScheme colorScheme;
   final VoidCallback onTap;
   final VoidCallback onDismissed;
@@ -439,26 +458,32 @@ class QueueTile extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 2),
-                      Text(
-                        song['artist']?.toString() ?? '',
-                        style: TextStyle(
-                          color: colorScheme.onSurfaceVariant,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              song['artist']?.toString() ?? '',
+                              style: TextStyle(
+                                color: colorScheme.onSurfaceVariant,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w400,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (song['artistVerified'] == true) ...[
+                            const SizedBox(width: 5),
+                            const VerifiedArtistBadge(size: 12),
+                          ],
+                        ],
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(width: 8),
                 if (isCurrentSong) ...[
-                  Icon(
-                    FluentIcons.music_note_2_24_regular,
-                    color: colorScheme.primary,
-                    size: 16,
-                  ),
+                  PlayingIndicatorBars(isPlaying: isPlaying),
                   const SizedBox(width: 6),
                 ],
                 ReorderableDragStartListener(
